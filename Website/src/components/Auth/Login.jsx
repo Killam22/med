@@ -6,16 +6,15 @@ export default function Login() {
   return (
     <section className="relative h-full flex items-center justify-center bg-[#D1DFEC]">
       <div className="grid grid-cols-1 lg:grid-cols-2 w-full h-full bg-white overflow-hidden">
-        {/* Left Side: Login Form Area */}
+        {/* Left Side*/}
         <div className="flex flex-col justify-center px-16 py-16">
           <div className="max-w-md w-full mx-auto text-center">
             <h2 className="text-5xl font-semibold text-black mb-16">Login</h2>
 
             <div className="space-y-10">
-              {/* Email Input */}
               <div className="relative group">
                 <span className="absolute -top-3 left-6 px-2 bg-white text-base font-medium text-[#365885] z-10">
-                  Email 
+                  Email
                 </span>
                 <div className="relative">
                   <input
@@ -29,7 +28,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Password Input */}
               <div className="relative group">
                 <label className="absolute -top-3 left-6 px-1.5 bg-white text-base font-medium text-[#365885] z-10">
                   Password
@@ -92,10 +90,10 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Right Side: Decorative Area */}
+        {/* Right Side*/}
         <div className="hidden lg:flex bg-gradient-to-br from-[#304B71] to-[#6492C9] items-center justify-center relative rounded-l-[250px] overflow-hidden">
           <div className="relative z-10 text-center flex flex-col items-center px-12">
-            {/* Doctor Image */}
+            {/* Image */}
             <div className="-mb-6 max-w-[480px]">
               <img
                 src="/Doctor_new.png"
@@ -104,7 +102,6 @@ export default function Login() {
               />
             </div>
 
-            {/* Registration Prompt */}
             <div className="space-y-3">
               <p className="text-white text-base font-medium opacity-80">
                 Don't have an account?

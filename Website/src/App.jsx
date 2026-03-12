@@ -1,5 +1,5 @@
-import Login from "./components/Login";
-import Register from "./components/Register";
+import Login from "./components/Auth/Login";
+import Register from "./components/Auth/Register";
 import Auth from "./components/Auth";
 
 function App() {
@@ -8,7 +8,7 @@ function App() {
       <div className="bg-white w-[1200px] h-[650px] shadow-2xl  relative rounded-xl border border-[#D1DFEC] overflow-hidden">
         <Login />
         <Register />
-        <Auth />
+        
       </div>
     </div>
   );
