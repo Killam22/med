@@ -24,3 +24,12 @@ Thumbs.db
 
 # Vite cache
 .vite/
+# Backend Django
+backend/env/
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/db.sqlite3
+backend/*.log
+backend/*/migrations/*.py
+!backend/*/migrations/__init__.py
