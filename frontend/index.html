@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediBook — Test Frontend</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── TOAST ─────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── AUTH SCREEN ───────────────────────────────────────────────────────── -->
+<div id="auth-screen" class="screen">
+  <div class="auth-hero">
+    <div class="auth-brand">
+      <span class="brand-icon">🏥</span>
+      <h1>MediBook</h1>
+      <p>Plateforme de rendez-vous médicaux</p>
+    </div>
+  </div>
+  <div class="auth-box">
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('login')">Connexion</button>
+      <button class="tab" onclick="switchTab('register')">Inscription</button>
+    </div>
+
+    <!-- Login -->
+    <form id="login-form" onsubmit="login(event)">
+      <div class="field"><label>Email</label><input id="l-email" type="email" required placeholder="medecin@example.com"/></div>
+      <div class="field"><label>Mot de passe</label><input id="l-pass" type="password" required placeholder="••••••••"/></div>
+      <button type="submit" class="btn-primary full">Se connecter</button>
+    </form>
+
+    <!-- Register -->
+    <form id="register-form" class="hidden" onsubmit="register(event)">
+      <div class="role-picker">
+        <label class="role-option">
+          <input type="radio" name="role" value="patient" checked /> 🧑‍⚕️ Patient
+        </label>
+        <label class="role-option">
+          <input type="radio" name="role" value="doctor" /> 👨‍⚕️ Médecin
+        </label>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Prénom</label><input id="r-first" type="text" required /></div>
+        <div class="field"><label>Nom</label><input id="r-last" type="text" required /></div>
+      </div>
+      <div class="field"><label>Email</label><input id="r-email" type="email" required /></div>
+      <div class="field"><label>Mot de passe</label><input id="r-pass" type="password" required minlength="8" /></div>
+      <div id="doctor-extra">
+        <div class="field"><label>Spécialité</label>
+          <select id="r-spec">
+            <option value="general">Médecine Générale</option>
+            <option value="cardiology">Cardiologie</option>
+            <option value="dermatology">Dermatologie</option>
+            <option value="neurology">Neurologie</option>
+            <option value="pediatrics">Pédiatrie</option>
+            <option value="dentistry">Dentisterie</option>
+            <option value="ophthalmology">Ophtalmologie</option>
+            <option value="orthopedics">Orthopédie</option>
+            <option value="gynecology">Gynécologie</option>
+            <option value="psychiatry">Psychiatrie</option>
+            <option value="physiotherapy">Kinésithérapie</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>N° Licence</label><input id="r-lic" type="text" /></div>
+          <div class="field"><label>Ville</label><input id="r-city" type="text" /></div>
+        </div>
+        <div class="field"><label>Clinique</label><input id="r-clinic" type="text" /></div>
+      </div>
+      <button type="submit" class="btn-primary full">Créer le compte</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── MAIN APP ───────────────────────────────────────────────────────────── -->
+<div id="app-screen" class="screen hidden">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span>🏥</span> MediBook</div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="user-badge"></div>
+      <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <div id="page-search"     class="page hidden"></div>
+    <div id="page-my-appts"   class="page hidden"></div>
+    <div id="page-schedule"   class="page hidden"></div>
+    <div id="page-slots"      class="page hidden"></div>
+    <div id="page-requests"   class="page hidden"></div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

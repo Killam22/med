@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Schedule - Doctor</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="api.js" defer></script>
+    <style>
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        
+        /* Event colors */
+        .event-blue { background: #E0F2FE; color: #0284C7; border-left: 4px solid #38BDF8; }
+        .event-green { background: #DCFCE7; color: #16A34A; border-left: 4px solid #4ADE80; }
+        .event-yellow { background: #FEF9C3; color: #CA8A04; border-left: 4px solid #FACC15; }
+
+        .legend {
+            display: flex; gap: 1rem;
+            position: absolute; right: 1rem; top: 0rem;
+            font-size: 0.75rem; color: var(--text-light);
+        }
+        .legend-item { display:flex; align-items:center; gap:0.25rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.blue { background: #38BDF8; }
+        .dot.green { background: #4ADE80; }
+        .dot.yellow { background: #FACC15; }
+    </style>
+</head>
+<body>
+
+<div class="container" style="max-width: 1600px;">
+    <header class="top-nav">
+        <div>
+            <h1>My Schedule</h1>
+            <p class="text-muted text-sm" id="headerDate">Thursday, October 24 - 0 appointments</p>
+        </div>
+        <div style="display:flex; gap: 1rem;">
+            <button class="btn btn-outline" style="border-radius: 8px;">Week</button>
+            <button class="btn btn-primary" style="border-radius: 8px;" onclick="addSlot()">+ Add Slot</button>
+        </div>
+    </header>
+
+    <div class="schedule-container">
+        <!-- Main Timeline Card -->
+        <div class="timeline-card">
+            <div class="date-scroller" id="dateScroller">
+                <!-- Javascript will populate days -->
+            </div>
+
+            <div class="timeline-grid">
+                <div class="time-labels">
+                    <div class="time-label">08:00</div>
+                    <div class="time-label">09:00</div>
+                    <div class="time-label">10:00</div>
+                    <div class="time-label">11:00</div>
+                    <div class="time-label">12:00</div>
+                    <div class="time-label">13:00</div>
+                    <div class="time-label">14:00</div>
+                    <div class="time-label">15:00</div>
+                    <div class="time-label">16:00</div>
+                    <div class="time-label">17:00</div>
+                </div>
+
+                <div class="timeline-tracks" id="timelineContainer">
+                    <div class="legend">
+                        <div class="legend-item"><div class="dot blue"></div> In-Person</div>
+                        <div class="legend-item"><div class="dot green"></div> Tele</div>
+                        <div class="legend-item"><div class="dot yellow"></div> Home</div>
+                    </div>
+
+                    <div class="lunch-break" style="top: 240px;">
+                        <span>Lunch break</span>
+                    </div>
+
+                    <!-- Events will be mapped here by Javascript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panels -->
+        <div>
+            <!-- Pending Requests -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <h3 style="font-size: 1rem;">Pending Requests</h3>
+                    <span class="badge" id="pendingCount">0</span>
+                </div>
+                <div id="pendingList">
+                    <div style="color:var(--text-light); text-align:center; padding:1rem;">No pending requests</div>
+                </div>
+            </div>
+
+            <!-- Today's Summary -->
+            <div class="panel-card">
+                <div class="panel-header" style="margin-bottom:0.5rem">
+                    <h3 style="font-size: 1rem;">Today's Summary</h3>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-stats">
+                        <span>Completed</span>
+                        <span id="summaryRatio">0/0</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="summaryFill" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top: 1rem; padding-top:1rem; border-top:1px solid #E2E8F0;" class="text-xs text-muted">
+                    <span id="statInPerson">In-Person: 0</span>
+                    <span id="statTele">Tele: 0</span>
+                    <span id="statHome">Home: 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants for rendering timeline
+    const START_HOUR = 8;
+    const PIXELS_PER_HOUR = 60; // 1 min = 1 px
+
+    const timelineContainer = document.getElementById('timelineContainer');
+    const pendingList = document.getElementById('pendingList');
+    const pendingCount = document.getElementById('pendingCount');
+    const dateScroller = document.getElementById('dateScroller');
+    
+    // UI State
+    let currentDate = new Date();
+
+    // Init Scroller Dates
+    function renderDateScroller() {
+        let html = '';
+        let start = new Date(currentDate);
+        start.setDate(start.getDate() - 3); // show 3 days before today
+
+        for(let i=0; i<7; i++) {
+            const d = new Date(start);
+            d.setDate(d.getDate() + i);
+            const isToday = d.toDateString() === currentDate.toDateString();
+            const dayName = d.toLocaleDateString('en-US', {weekday:'short'});
+            const dayNum = d.getDate();
+            const dateStr = d.toISOString().split('T')[0];
+
+            html += `
+                <div class="date-item ${isToday ? 'active' : ''}" onclick="changeDate('${dateStr}')">
+                    <span>${dayName}</span>
+                    <span>${dayNum}</span>
+                </div>
+            `;
+        }
+        dateScroller.innerHTML = html;
+        document.getElementById('headerDate').textContent = `${currentDate.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})} - Loading...`;
+    }
+
+    window.changeDate = function(dateStr) {
+        currentDate = new Date(dateStr);
+        renderDateScroller();
+        fetchSchedule();
+    };
+
+    function timeToPixels(timeStr) {
+        // timeStr format: "HH:MM:SS"
+        const parts = timeStr.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        
+        let totalMinutes = ((h - START_HOUR) * 60) + m;
+        return totalMinutes;
+    }
+
+    async function fetchSchedule() {
+        try {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            let appts = await api.getDoctorSchedule(dateStr);
+            appts = appts.results || appts;
+            
+            // Clean timeline
+            document.querySelectorAll('.timeline-event').forEach(e => e.remove());
+            
+            document.getElementById('headerDate').textContent = `${currentDate.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})} - ${appts.length || 0} appointments`;
+
+            if(appts.length === 0) {
+                // timelineContainer.innerHTML += `<div class="timeline-event" style="top: 100px; height: 60px; text-align:center; background:transparent; border:none; box-shadow:none;">No appointments today</div>`;
+            }
+
+            let completedCount = 0;
+            const colors = ['event-blue', 'event-green', 'event-yellow'];
+
+            appts.forEach((appt, idx) => {
+                const top = timeToPixels(appt.slot_start_time);
+                const bottom = timeToPixels(appt.slot_end_time);
+                const height = bottom - top;
+
+                if (appt.status === 'completed') completedCount++;
+
+                // Pseudo-randomly assign colors since we didn't add consultation_type
+                const colorClass = colors[idx % 3];
+
+                const event = document.createElement('div');
+                event.className = `timeline-event ${colorClass}`;
+                event.style.top = `${top}px`;
+                event.style.height = `${Math.max(height, 20)}px`; // At least 20px
+                
+                event.innerHTML = `
+                    <h4>${appt.patient_name || 'Patient'}, ${appt.patient_age || '?'}</h4>
+                    <p>${appt.motif || 'Consultation'}</p>
+                `;
+                timelineContainer.appendChild(event);
+            });
+
+            // Update Summary
+            const total = appts.length;
+            document.getElementById('summaryRatio').textContent = `${completedCount}/${total}`;
+            const pct = total === 0 ? 0 : (completedCount / total) * 100;
+            document.getElementById('summaryFill').style.width = `${pct}%`;
+            
+            document.getElementById('statInPerson').textContent = `In-Person: ${appts.length}`; // mocking Since no real type
+
+        } catch (e) {
+            console.error(e);
+            showToast('Failed to load schedule');
+        }
+    }
+
+    async function fetchPending() {
+        try {
+            let requests = await api.getPendingRequests();
+            requests = requests.results || requests;
+            
+            pendingCount.textContent = requests.length;
+
+            if (requests.length === 0) {
+                pendingList.innerHTML = '<div style="color:var(--text-light); text-align:center; padding:1rem;">No pending requests</div>';
+                return;
+            }
+
+            pendingList.innerHTML = requests.map(req => {
+                const init = getInitials(req.patient_name);
+                return `
+                <div class="request-item">
+                    <div class="req-avatar">${init}</div>
+                    <div class="req-info">
+                        <h4>${req.patient_name}</h4>
+                        <p>${req.slot_date} - ${req.motif || 'Consultation'}</p>
+                    </div>
+                    <div class="req-actions">
+                        <button class="btn-icon btn-accept" onclick="acceptReq(${req.id})" title="Accept">✔</button>
+                        <button class="btn-icon btn-reject" onclick="rejectReq(${req.id})" title="Reject">✖</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+        } catch(e) {
+            console.error(e);
+            showToast('Failed to load pending requests');
+        }
+    }
+
+    window.acceptReq = async function(id) {
+        try {
+            await api.confirmAppointment(id);
+            showToast('Request Accepted');
+            fetchPending();
+            fetchSchedule();
+        } catch(e) {
+            showToast('Error processing request');
+        }
+    }
+
+    window.rejectReq = async function(id) {
+        if(!confirm("Reject this request?")) return;
+        try {
+            await api.refuseAppointment(id);
+            showToast('Request Rejected');
+            fetchPending();
+        } catch(e) {
+            showToast('Error processing request');
+        }
+    }
+
+    window.addSlot = async function() {
+        const dateStr = prompt("Date (YYYY-MM-DD):", currentDate.toISOString().split('T')[0]);
+        if(!dateStr) return;
+        const startStr = prompt("Start time (HH:MM):", "08:00");
+        if(!startStr) return;
+        const endStr = prompt("End time (HH:MM):", "09:00");
+        if(!endStr) return;
+
+        try {
+            await api.createSlot(dateStr, startStr, endStr);
+            showToast("Slot added successfully!");
+            fetchSchedule();
+        } catch(e) {
+            alert("Failed to add slot: Check format HH:MM and verify it is not overlapping.");
+        }
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+        renderDateScroller();
+        fetchSchedule();
+        fetchPending();
+        setInterval(fetchPending, 10000); // refresh pending every 10s
+    });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment - Patient</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="api.js" defer></script>
+    <style>
+        /* Top Navigation */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        .nav-bell {
+            width: 40px; height: 40px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+            background: var(--white);
+            color: var(--secondary);
+            cursor: pointer;
+        }
+        
+        /* Appointments section */
+        .appointments-tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .tab {
+            padding: 1rem 0;
+            color: var(--text-light);
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+        }
+        .view-all {
+            position: absolute;
+            right: 0; top: 1rem;
+            font-size: 0.875rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .appt-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .appt-card {
+            background: var(--white);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+        .appt-card-left {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .appt-icon {
+            width: 48px; height: 48px;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header class="top-nav">
+        <div>
+            <h1>Book Appointment</h1>
+            <p class="text-muted text-sm">Find and book the best healthcare experts</p>
+        </div>
+        <button class="nav-bell">🔔</button>
+    </header>
+
+    <!-- Search Section -->
+    <div class="search-container">
+        <span style="padding-left:1rem; color: var(--text-light)">🔍</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search doctor, specialty, or clinic...">
+        <div class="search-divider"></div>
+        <span style="padding-left:0.5rem; color: var(--text-light)">📍</span>
+        <input type="text" id="cityInput" class="search-input" value="Paris" placeholder="City">
+    </div>
+
+    <!-- Specialty Bubbles -->
+    <div style="display:flex; align-items:center; gap: 1rem; margin-bottom: 1rem;">
+        <span class="text-sm text-muted">Specialty:</span>
+        <div class="specialty-row" id="specialtyContainer">
+            <button class="bubble active" data-val="">All</button>
+            <button class="bubble" data-val="cardiology">Cardiology</button>
+            <button class="bubble" data-val="dermatology">Dermatology</button>
+            <button class="bubble" data-val="general">General</button>
+            <button class="bubble" data-val="pediatrics">Pediatrics</button>
+            <button class="bubble" data-val="neurology">Neurology</button>
+            <button class="bubble" data-val="dentistry">Dentistry</button>
+            <button class="bubble" data-val="ophthalmology">Ophthalmology</button>
+            <button class="bubble" data-val="orthopedics">Orthopedics</button>
+        </div>
+    </div>
+
+    <!-- Filters Row -->
+    <div class="filters-row">
+        <select disabled><option>🗓 Any Type</option></select>
+        <input type="date" id="dateInput">
+        <div style="display:flex; align-items:center; gap:0.5rem; background:white; padding: 0.5rem 1rem; border:1px solid #E2E8F0; border-radius:6px; font-size:0.875rem;">
+            <span>📍 Within</span>
+            <input type="range" min="1" max="50" value="10" disabled style="width: 80px;">
+            <span>10km</span>
+        </div>
+        <select id="genderInput">
+            <option value="">Any Gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+        </select>
+        <select id="ratingInput" style="min-width: 140px;">
+            <option value="">Min Rating</option>
+            <option value="4.0">Min ⭐⭐⭐⭐</option>
+            <option value="4.5">Min ⭐⭐⭐⭐.5</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" onclick="performSearch()" style="padding: 0.75rem 2rem; border-radius: 8px;">
+            🔍 Search Doctors
+        </button>
+    </div>
+
+    <!-- Results Area -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; margin-top:2rem;">
+        <h3 style="font-size: 1rem;">Recommended Doctors</h3>
+        <span class="text-sm text-muted" id="resultCount">0 results found</span>
+    </div>
+
+    <div id="doctorsList">
+        <div style="color:var(--text-light); text-align:center; padding: 2rem;">Loading doctors...</div>
+    </div>
+
+    <!-- Bottom Section: Appointments -->
+    <div style="margin-top: 4rem;">
+        <div class="appointments-tabs">
+            <div class="tab active">Upcoming</div>
+            <div class="tab">Past</div>
+            <div class="tab">Cancelled</div>
+            <a href="#" class="view-all">View All Appointments</a>
+        </div>
+        <div class="appt-grid" id="upcomingAppts">
+            <div style="color:var(--text-light);">Loading your appointments...</div>
+        </div>
+    </div>
+
+    <!-- Modal Doctor Profile -->
+    <div id="profileModal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center;">
+        <div style="background:var(--white); padding:2rem; border-radius:var(--radius-md); max-width:600px; width:90%; box-shadow:var(--shadow-lg); max-height:90vh; overflow-y:auto; position:relative;">
+            <button onclick="document.getElementById('profileModal').classList.add('hidden')" style="position:absolute; top:1rem; right:1rem; border:none; background:transparent; font-size:1.5rem; cursor:pointer;">&times;</button>
+            <div id="profileModalContent">Loading...</div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // State
+    let currentSpecialty = "";
+    let currentApptTab = "upcoming";
+    let allPatientAppointments = [];
+
+    // DOM Elements
+    const doctorsList = document.getElementById('doctorsList');
+    const resultCount = document.getElementById('resultCount');
+    const searchInput = document.getElementById('searchInput');
+    const cityInput = document.getElementById('cityInput');
+    const dateInput = document.getElementById('dateInput');
+    const genderInput = document.getElementById('genderInput');
+    const ratingInput = document.getElementById('ratingInput');
+    const upcomingAppts = document.getElementById('upcomingAppts');
+
+    // Specialty bubble click
+    document.querySelectorAll('.bubble').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.bubble').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentSpecialty = e.target.getAttribute('data-val');
+            performSearch();
+        });
+    });
+
+    // Appointment Tab click
+    document.querySelectorAll('.appointments-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            document.querySelectorAll('.appointments-tabs .tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            currentApptTab = e.target.innerText.toLowerCase();
+            renderAppointments();
+        });
+    });
+
+    async function performSearch() {
+        doctorsList.innerHTML = '<div style="color:var(--text-light); text-align:center; padding: 2rem;">Loading...</div>';
+        try {
+            const params = {};
+            if (searchInput.value) params.search = searchInput.value;
+            if (cityInput.value) params.city = cityInput.value;
+            if (currentSpecialty) params.specialty = currentSpecialty;
+            if (dateInput.value) params.date = dateInput.value;
+            if (genderInput.value) params.gender = genderInput.value;
+            if (ratingInput.value) params.rating_min = ratingInput.value;
+
+            const data = await api.searchDoctors(params);
+            
+            resultCount.textContent = `${data.count || data.length || 0} results found`;
+            
+            // Django paginated response fallback
+            const results = data.results || data; 
+            
+            if (results.length === 0) {
+                doctorsList.innerHTML = `<div style="text-align:center; padding: 3rem; background:white; border-radius:12px; border:1px solid #E2E8F0;">No doctors found matching your criteria.</div>`;
+                return;
+            }
+
+            doctorsList.innerHTML = results.map(doc => renderDoctorCard(doc)).join('');
+
+        } catch (e) {
+            doctorsList.innerHTML = '<div style="color:red; padding: 2rem;">Failed to load doctors. Please ensure the Django server is running.</div>';
+        }
+    }
+
+    function renderDoctorCard(doc) {
+        // Group slots by date
+        const today = new Date().toISOString().split('T')[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        
+        const slotsToday = (doc.available_slots_for_date || []).filter(s => s.date === today);
+        const slotsTmrw = (doc.available_slots_for_date || []).filter(s => s.date === tomorrow);
+
+        const renderSlotButtons = (slots) => {
+            if (slots.length === 0) return `<div class="slot-time full">Full</div><div class="slot-time full">Full</div>`;
+            return slots.map(s => `<div class="slot-time" onclick="bookSlot(${s.id}, ${doc.id}, '${doc.full_name}')">${s.start_time.substring(0,5)}</div>`).join('');
+        };
+
+        const initials = getInitials(doc.full_name);
+        // Using a pseudo-random color based on name length for avatar
+        const hue = (doc.full_name.length * 30) % 360;
+        
+        return `
+        <div class="doctor-card">
+            <div class="avatar-lg" style="background: hsl(${hue}, 60%, 45%);">${initials}</div>
+            <div class="doc-info">
+                <h3>Dr. ${doc.full_name}</h3>
+                <span class="text-sm text-primary">${doc.specialty_display}</span>
+                <span class="text-xs text-muted">📍 ${doc.clinic_name || 'Cabinet Médical'}</span>
+                <span class="text-xs text-muted">⭐ ${doc.rating} (${doc.total_reviews} reviews) • ${doc.experience_years} years exp.</span>
+                <p class="text-sm" style="margin-top:0.25rem;">${doc.bio_short || 'Expert in general health and preventive care.'}</p>
+                <div class="doc-tags">
+                    ${doc.specialty === 'cardiology' ? '<span class="tag">Heart Failure</span><span class="tag">ECG Analysis</span>' : '<span class="tag">Consultation</span>'}
+                </div>
+            </div>
+            <div class="doc-slots">
+                <div>
+                    <div class="slot-day">
+                        <h4>Today, ${new Date().toLocaleDateString('en-US', {month:'short', day:'numeric'})}</h4>
+                        <div class="slot-times">${renderSlotButtons(slotsToday)}</div>
+                    </div>
+                    <div class="slot-day">
+                        <h4>Tomorrow</h4>
+                        <div class="slot-times">${renderSlotButtons(slotsTmrw)}</div>
+                    </div>
+                </div>
+                <div class="doc-actions">
+                    <button class="btn btn-outline" onclick="showProfile(${doc.id})" style="flex:1">View Profile</button>
+                    <!-- Book button is just decorative since we book on slot click -->
+                    <button class="btn btn-primary" style="flex:1">Book Now</button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    async function bookSlot(slotId, docId, docName) {
+        if(!confirm(`Are you sure you want to book this slot with Dr. ${docName}?`)) return;
+        try {
+            await api.bookAppointment(slotId, docId);
+            showToast('Appointment booked successfully!');
+            performSearch(); // refresh slots
+            fetchAppointments(); // refresh bottom list
+        } catch (e) {
+            alert('Failed to book appointment: ' + e.message);
+            showToast('Failed to book appointment.');
+        }
+    }
+
+    async function showProfile(docId) {
+        const modal = document.getElementById('profileModal');
+        const content = document.getElementById('profileModalContent');
+        modal.classList.remove('hidden');
+        content.innerHTML = '<div style="text-align:center; padding:2rem;">Loading profile...</div>';
+        try {
+            const doc = await api.getDoctorDetails(docId);
+            content.innerHTML = `
+                <div style="display:flex; gap:1.5rem; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:1.5rem; margin-bottom:1.5rem;">
+                    <div class="avatar-lg" style="width:80px; height:80px; font-size:2rem;">${getInitials(doc.first_name + ' ' + doc.last_name)}</div>
+                    <div>
+                        <h2>Dr. ${doc.first_name} ${doc.last_name}</h2>
+                        <p class="text-primary" style="font-weight:500;">${doc.specialty_display}</p>
+                        <p class="text-sm text-muted">⭐ ${doc.rating} (${doc.total_reviews} reviews) • ${doc.experience_years} years experience</p>
+                    </div>
+                </div>
+                <div style="margin-bottom:1.5rem;">
+                    <h3 style="margin-bottom:0.5rem; font-size:1rem;">About</h3>
+                    <p class="text-sm text-base" style="line-height:1.6;">${doc.bio || 'No bio provided.'}</p>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem;" class="text-sm">
+                    <div><strong>Clinic:</strong> ${doc.clinic_name || 'N/A'}</div>
+                    <div><strong>Fee:</strong> $${doc.consultation_fee || '0'}</div>
+                    <div><strong>City:</strong> ${doc.city || 'N/A'}</div>
+                    <div><strong>Languages:</strong> ${doc.languages || 'N/A'}</div>
+                    <div><strong>License:</strong> ${doc.license_number || 'N/A'}</div>
+                </div>
+            `;
+        } catch (e) {
+            content.innerHTML = '<div style="color:red; text-align:center;">Failed to load profile.</div>';
+        }
+    }
+
+    async function fetchAppointments() {
+        try {
+            const data = await api.getPatientAppointments();
+            allPatientAppointments = data.results || data;
+            renderAppointments();
+        } catch(e) {
+            upcomingAppts.innerHTML = '<div style="color:red">Failed to load appointments.</div>';
+        }
+    }
+
+    function renderAppointments() {
+        let filtered = allPatientAppointments;
+        
+        if (currentApptTab === 'upcoming') {
+            filtered = allPatientAppointments.filter(a => ['pending', 'confirmed'].includes(a.status));
+        } else if (currentApptTab === 'past') {
+            filtered = allPatientAppointments.filter(a => a.status === 'completed');
+        } else if (currentApptTab === 'cancelled') {
+            filtered = allPatientAppointments.filter(a => ['cancelled', 'refused'].includes(a.status));
+        }
+
+        if (filtered.length === 0) {
+            upcomingAppts.innerHTML = `<div style="grid-column:1/-1; padding:2rem; text-align:center; background:white; border-radius:12px; border:1px solid #E2E8F0;">No ${currentApptTab} appointments</div>`;
+            return;
+        }
+
+        upcomingAppts.innerHTML = filtered.map(appt => `
+            <div class="appt-card">
+                <div class="appt-card-left">
+                    <div class="appt-icon">📅</div>
+                    <div>
+                        <h4 style="margin:0; font-size: 0.95rem;">${appt.doctor_name}</h4>
+                        <p class="text-xs text-muted" style="margin:0.1rem 0;">${appt.doctor_specialty}</p>
+                        <p class="text-sm" style="color:var(--primary); font-weight:500;">
+                            ${appt.slot_date} - ${appt.slot_start_time?.substring(0,5)}
+                        </p>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-direction:column; align-items:flex-end;">
+                    <span class="badge" style="background:var(--success-light); color:var(--success); border-radius:4px; margin-bottom:0.5rem;">${appt.status_display}</span>
+                    <div style="display:flex; gap:1rem;">
+                        <a href="#" class="btn-text text-sm" onclick="cancelAppt(${appt.id})">Cancel</a>
+                        <a href="#" class="btn-text text-sm text-muted">Reschedule</a>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    window.cancelAppt = async function(id) {
+        if(!confirm('Are you sure you want to cancel this appointment?')) return;
+        try {
+            await api.fetchWithAuth(`/appointments/${id}/cancel/`, { method: 'POST' });
+            fetchAppointments();
+            performSearch();
+        } catch(e) {
+            alert("Could not cancel.");
+        }
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+        performSearch();
+        fetchAppointments();
+    });
+
+</script>
+</body>
+</html>
