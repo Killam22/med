@@ -9,16 +9,64 @@ from rest_framework.exceptions import ValidationError
 
 from patients.models import Patient
 from doctors.models import Doctor
-from .models import AvailabilitySlot, Appointment, Notification, Review
+from .models import Appointment, Notification, Review
 from .serializers import (
-    AvailabilitySlotSerializer,
     AppointmentSerializer,
     AppointmentDoctorSerializer,
+    BookAppointmentSerializer,
     NotificationSerializer,
     ReviewSerializer,
 )
+
+from .services import book_appointment, get_available_slots, get_available_slots_range
 from .permissions import IsPatient, IsDoctor
 
+# ── Availability (public) ─────────────────────────────────────────────────────
+
+class DoctorAvailabilityView(APIView):
+    """
+    GET /api/doctors/{doctor_id}/availability/?date=2025-06-16
+    GET /api/doctors/{doctor_id}/availability/?from=2025-06-16&to=2025-06-23
+    """
+
+    def get(self, request, doctor_id):
+        try:
+            doctor = Doctor.objects.get(pk=doctor_id, is_active=True)
+        except Doctor.DoesNotExist:
+            return Response({"detail": "Médecin introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        single_date = request.query_params.get('date')
+        from_date   = request.query_params.get('from')
+        to_date     = request.query_params.get('to')
+
+        try:
+            if single_date:
+                target = date.fromisoformat(single_date)
+                slots  = get_available_slots(doctor, target)
+                return Response({
+                    'doctor_id': doctor_id,
+                    'date':      single_date,
+                    'slots':     slots,
+                })
+
+            elif from_date and to_date:
+                f = date.fromisoformat(from_date)
+                t = date.fromisoformat(to_date)
+                if (t - f).days > 60:
+                    return Response(
+                        {"detail": "La plage maximale est de 60 jours."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                return Response(get_available_slots_range(doctor, f, t))
+
+            else:
+                # Default: next 7 days
+                today = timezone.now().date()
+                return Response(get_available_slots_range(doctor, today, today + timedelta(days=6)))
+
+        except ValueError:
+            return Response({"detail": "Format de date invalide. Utilisez YYYY-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 # ── Patient Appointment Views ──────────────────────────────────────────────────
 
@@ -27,32 +75,43 @@ class PatientAppointmentListCreateView(generics.ListCreateAPIView):
     GET  /api/appointments/ — patient's appointment list
     POST /api/appointments/ — book a new appointment
     """
-    serializer_class = AppointmentSerializer
     permission_classes = [IsPatient]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return BookAppointmentSerializer
+        return AppointmentSerializer
 
     def get_queryset(self):
         patient = self.request.user.patient_profile
-        qs = Appointment.objects.filter(patient=patient).select_related(
-            'doctor__user', 'slot'
-        )
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
+        qs = Appointment.objects.filter(patient=patient).select_related('doctor__user')
+        if status_filter := self.request.query_params.get('status'):
             qs = qs.filter(status=status_filter)
         return qs
 
-    def perform_create(self, serializer):
-        patient = self.request.user.patient_profile
-        slot = serializer.validated_data['slot']
-        appointment = serializer.save(
-            patient=patient,
-            doctor=slot.doctor,
+    def create(self, request, *args, **kwargs):
+        serializer = BookAppointmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        try:
+            appointment = book_appointment(
+                patient    = request.user.patient_profile,
+                doctor     = d['doctor'],
+                date       = d['date'],
+                start_time = d['start_time'],
+                end_time   = d['end_time'],
+                motif      = d['motif'],
+            )
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            AppointmentSerializer(appointment).data,
+            status=status.HTTP_201_CREATED,
         )
-        Notification.objects.create(
-            user=slot.doctor.user,
-            message=f"Nouvelle demande de rendez-vous de {patient.user.get_full_name()}.",
-            notification_type='booking',
-            related_appointment=appointment
-        )
+
+
 
 
 class PatientAppointmentDetailView(generics.RetrieveAPIView):
@@ -65,7 +124,7 @@ class PatientAppointmentDetailView(generics.RetrieveAPIView):
 
 
 class CancelAppointmentView(APIView):
-    """POST /api/appointments/{id}/cancel/ — patient cancels appointment."""
+    """POST /api/appointments/{id}/cancel/"""
     permission_classes = [IsPatient]
 
     def post(self, request, pk):
@@ -74,7 +133,7 @@ class CancelAppointmentView(APIView):
         except Appointment.DoesNotExist:
             return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if appointment.status in ('cancelled', 'refused', 'completed'):
+        if not appointment.is_active:
             return Response(
                 {"detail": f"Impossible d'annuler un rendez-vous '{appointment.get_status_display()}'."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -83,15 +142,14 @@ class CancelAppointmentView(APIView):
         appointment.cancel()
         Notification.objects.create(
             user=appointment.doctor.user,
-            message=f"Le patient {appointment.patient.user.get_full_name()} a annulé son rendez-vous du {appointment.slot.date if appointment.slot else ''}.",
+            message=f"{appointment.patient.user.get_full_name()} a annulé son RDV du {appointment.date}.",
             notification_type='status_change',
-            related_appointment=appointment
+            related_appointment=appointment,
         )
-        return Response({"detail": "Rendez-vous annulé avec succès."}, status=status.HTTP_200_OK)
-
+        return Response({"detail": "Rendez-vous annulé."}, status=status.HTTP_200_OK)
 
 class RescheduleAppointmentView(APIView):
-    """POST /api/appointments/{id}/reschedule/ — patient picks a new slot."""
+    """POST /api/appointments/{id}/reschedule/"""
     permission_classes = [IsPatient]
 
     def post(self, request, pk):
@@ -100,40 +158,46 @@ class RescheduleAppointmentView(APIView):
         except Appointment.DoesNotExist:
             return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if appointment.status in ('cancelled', 'refused', 'completed'):
-            return Response(
-                {"detail": "Impossible de modifier ce rendez-vous."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if not appointment.is_active:
+            return Response({"detail": "Impossible de modifier ce rendez-vous."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        new_slot_id = request.data.get('slot_id')
-        if not new_slot_id:
-            return Response({"detail": "Veuillez fournir un 'slot_id'."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = BookAppointmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
 
+        # Cancel the current one, then book the new one atomically
         try:
-            new_slot = AvailabilitySlot.objects.get(pk=new_slot_id, doctor=appointment.doctor, is_booked=False)
-        except AvailabilitySlot.DoesNotExist:
-            return Response({"detail": "Créneau indisponible."}, status=status.HTTP_400_BAD_REQUEST)
+            from django.db import transaction
+            with transaction.atomic():
+                appointment.cancel()
+                new_appointment = book_appointment(
+                    patient    = request.user.patient_profile,
+                    doctor     = appointment.doctor,  # same doctor
+                    date       = d['date'],
+                    start_time = d['start_time'],
+                    end_time   = d['end_time'],
+                    motif      = appointment.motif,
+                )
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Free the old slot
-        if appointment.slot:
-            appointment.slot.is_booked = False
-            appointment.slot.save()
-
-        # Assign new slot
-        new_slot.is_booked = True
-        new_slot.save()
-        appointment.slot = new_slot
-        appointment.status = 'pending'
-        appointment.save()
-
-        serializer = AppointmentSerializer(appointment)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+        return Response(AppointmentSerializer(new_appointment).data, status=status.HTTP_200_OK)
 
 # ── Doctor Appointment Management ─────────────────────────────────────────────
 
 class DoctorAppointmentListView(generics.ListAPIView):
+    serializer_class = AppointmentDoctorSerializer
+    permission_classes = [IsDoctor]
+
+    def get_queryset(self):
+        doctor = self.request.user.doctor_profile
+        qs = Appointment.objects.filter(doctor=doctor).select_related('patient__user')
+        if s := self.request.query_params.get('status'):
+            qs = qs.filter(status=s)
+        if d := self.request.query_params.get('date'):
+            qs = qs.filter(date=d)
+        return qs.order_by('date', 'start_time')
     """GET /api/doctor/appointments/ — doctor sees all their appointments."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
@@ -153,21 +217,17 @@ class DoctorAppointmentListView(generics.ListAPIView):
 
 
 class DoctorDailyScheduleView(generics.ListAPIView):
-    """GET /api/doctor/schedule/today/ — doctor's appointments for today."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
 
     def get_queryset(self):
         doctor = self.request.user.doctor_profile
-        today = timezone.now().date()
-        date_param = self.request.query_params.get('date')
-        target_date = date_param if date_param else today
-
+        target = self.request.query_params.get('date', timezone.now().date())
         return Appointment.objects.filter(
             doctor=doctor,
-            slot__date=target_date,
-            status__in=['confirmed', 'pending', 'completed']
-        ).select_related('patient__user', 'slot').order_by('slot__start_time')
+            date=target,
+            status__in=['confirmed', 'pending', 'completed'],
+        ).select_related('patient__user').order_by('start_time')
 
 
 class DoctorPendingAppointmentsView(generics.ListAPIView):
@@ -193,79 +253,76 @@ class DoctorAppointmentDetailView(generics.RetrieveAPIView):
 
 
 class ConfirmAppointmentView(APIView):
-    """POST /api/doctor/appointments/{id}/confirm/ — doctor confirms."""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
         try:
-            appointment = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
         except Appointment.DoesNotExist:
-            return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if appointment.status != 'pending':
-            return Response(
-                {"detail": f"Impossible de confirmer un rendez-vous '{appointment.get_status_display()}'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        appointment.confirm()
+        if appt.status != 'pending':
+            return Response({"detail": "Seuls les rendez-vous en attente peuvent être confirmés."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        appt.confirm()
         Notification.objects.create(
-            user=appointment.patient.user,
-            message=f"Votre rendez-vous avec le Dr. {appointment.doctor.user.last_name} a été confirmé.",
+            user=appt.patient.user,
+            message=f"Votre RDV avec Dr.{appt.doctor.user.last_name} est confirmé.",
             notification_type='status_change',
-            related_appointment=appointment
+            related_appointment=appt,
         )
-        return Response({"detail": "Rendez-vous confirmé."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Confirmé."}, status=status.HTTP_200_OK)
 
 
 class RefuseAppointmentView(APIView):
-    """POST /api/doctor/appointments/{id}/refuse/ — doctor refuses."""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
         try:
-            appointment = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
         except Appointment.DoesNotExist:
-            return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if appointment.status not in ('pending', 'confirmed'):
-            return Response(
-                {"detail": f"Impossible de refuser un rendez-vous '{appointment.get_status_display()}'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reason = request.data.get('reason', '')
-        appointment.refuse(reason=reason)
+        if appt.status not in ('pending', 'confirmed'):
+            return Response({"detail": "Ce rendez-vous ne peut pas être refusé."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        appt.refuse(reason=request.data.get('reason', ''))
         Notification.objects.create(
-            user=appointment.patient.user,
-            message=f"Votre demande de rendez-vous avec le Dr. {appointment.doctor.user.last_name} a été refusée.",
+            user=appt.patient.user,
+            message=f"Votre demande avec Dr.{appt.doctor.user.last_name} a été refusée.",
             notification_type='status_change',
-            related_appointment=appointment
+            related_appointment=appt,
         )
-        return Response({"detail": "Rendez-vous refusé."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Refusé."}, status=status.HTTP_200_OK)
 
 
 class CompleteAppointmentView(APIView):
-    """POST /api/doctor/appointments/{id}/complete/ — mark as completed."""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
         try:
-            appointment = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
         except Appointment.DoesNotExist:
-            return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if appointment.status != 'confirmed':
-            return Response(
-                {"detail": "Seuls les rendez-vous confirmés peuvent être marqués terminés."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if appt.status != 'confirmed':
+            return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        appt.complete(notes=request.data.get('notes', ''))
+        return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)class CompleteAppointmentView(APIView):
+    permission_classes = [IsDoctor]
 
-        notes = request.data.get('notes', '')
-        appointment.status = 'completed'
-        appointment.notes = notes
-        appointment.save()
-        return Response({"detail": "Rendez-vous marqué comme terminé."}, status=status.HTTP_200_OK)
+    def post(self, request, pk):
+        try:
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except Appointment.DoesNotExist:
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if appt.status != 'confirmed':
+            return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        appt.complete(notes=request.data.get('notes', ''))
+        return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
 
 
 # ── Notification Views ────────────────────────────────────────────────────────

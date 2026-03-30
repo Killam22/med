@@ -53,3 +53,42 @@ class Exercice(models.Model):
 
     def __str__(self):
         return f"{self.establishment_name} ({self.doctor})"
+
+class WeeklySchedule(models.Model):
+    DAY_CHOICES = [
+        (0, 'Lundi'), (1, 'Mardi'),   (2, 'Mercredi'), (3, 'Jeudi'),
+        (4, 'Vendredi'), (5, 'Samedi'), (6, 'Dimanche'),
+    ]
+    DURATION_CHOICES = [(15, '15 min'), (20, '20 min'), (30, '30 min'), (45, '45 min'), (60, '1h')]
+
+    doctor        = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='schedules')
+    day_of_week   = models.IntegerField(choices=DAY_CHOICES)
+    start_time    = models.TimeField()
+    end_time      = models.TimeField()
+    slot_duration = models.IntegerField(choices=DURATION_CHOICES, default=30)
+    is_active     = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('doctor', 'day_of_week')
+        verbose_name = "Planning hebdomadaire"
+
+    def clean(self):
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValidationError("L'heure de fin doit être après l'heure de début.")
+
+    def __str__(self):
+        return f"Dr.{self.doctor.user.last_name} — {self.get_day_of_week_display()} {self.start_time}–{self.end_time}"
+
+
+class DayOff(models.Model):
+    """A specific date the doctor is unavailable (holiday, leave, etc.)"""
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='days_off')
+    date   = models.DateField()
+    reason = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        unique_together = ('doctor', 'date')
+        verbose_name = "Jour de congé"
+
+    def __str__(self):
+        return f"Dr.{self.doctor.user.last_name} off — {self.date}"

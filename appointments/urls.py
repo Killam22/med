@@ -27,21 +27,22 @@ from .views import (
 )
 
 urlpatterns = [
-    # ── Patient appointments ──────────────────────────────────────────────────
-    path('appointments/', PatientAppointmentListCreateView.as_view(), name='appointment-list-create'),
-    path('appointments/<int:pk>/', PatientAppointmentDetailView.as_view(), name='appointment-detail'),
-    path('appointments/<int:pk>/cancel/', CancelAppointmentView.as_view(), name='appointment-cancel'),
-    path('appointments/<int:pk>/reschedule/', RescheduleAppointmentView.as_view(), name='appointment-reschedule'),
+    # ── Availability (public) ─────────────────────────────────────────────
+    path('doctors/<int:doctor_id>/availability/', views.DoctorAvailabilityView.as_view()),
 
-    # ── Doctor appointments ───────────────────────────────────────────────────
-    path('doctor/schedule/today/', DoctorDailyScheduleView.as_view(), name='doctor-schedule-today'),
-    path('doctor/appointments/pending/', DoctorPendingAppointmentsView.as_view(), name='doctor-appointments-pending'),
-    path('doctor/appointments/', DoctorAppointmentListView.as_view(), name='doctor-appointment-list'),
-    path('doctor/appointments/<int:pk>/', DoctorAppointmentDetailView.as_view(), name='doctor-appointment-detail'),
-    path('doctor/appointments/<int:pk>/confirm/', ConfirmAppointmentView.as_view(), name='appointment-confirm'),
-    path('doctor/appointments/<int:pk>/refuse/', RefuseAppointmentView.as_view(), name='appointment-refuse'),
-    path('doctor/appointments/<int:pk>/complete/', CompleteAppointmentView.as_view(), name='appointment-complete'),
+    # ── Patient ───────────────────────────────────────────────────────────
+    path('appointments/',                          views.PatientAppointmentListCreateView.as_view()),
+    path('appointments/<int:pk>/',                 views.PatientAppointmentDetailView.as_view()),
+    path('appointments/<int:pk>/cancel/',          views.CancelAppointmentView.as_view()),
+    path('appointments/<int:pk>/reschedule/',      views.RescheduleAppointmentView.as_view()),
 
+    # ── Doctor ────────────────────────────────────────────────────────────
+    path('doctor/schedule/',                       views.DoctorDailyScheduleView.as_view()),
+    path('doctor/appointments/',                   views.DoctorAppointmentListView.as_view()),
+    path('doctor/appointments/<int:pk>/confirm/',  views.ConfirmAppointmentView.as_view()),
+    path('doctor/appointments/<int:pk>/refuse/',   views.RefuseAppointmentView.as_view()),
+    path('doctor/appointments/<int:pk>/complete/', views.CompleteAppointmentView.as_view()),
+          
     # ── Reviews ────────────────────────────────────────────────────────────────
     path('appointments/<int:pk>/review/', CreateReviewView.as_view(), name='appointment-review'),
     path('doctors/<int:pk>/reviews/', DoctorReviewListView.as_view(), name='doctor-reviews'),

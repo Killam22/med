@@ -10,93 +10,84 @@ from patients.models import Patient
 from doctors.models import Doctor
 
 
-# ── Availability Slot ─────────────────────────────────────────────────────────
-
-class AvailabilitySlot(models.Model):
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='slots')
-    date = models.DateField()
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    is_booked = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Créneau de disponibilité"
-        verbose_name_plural = "Créneaux de disponibilité"
-        ordering = ['date', 'start_time']
-        unique_together = ('doctor', 'date', 'start_time')
-
-    def __str__(self):
-        return (
-            f"Dr. {self.doctor.user.get_full_name()} — "
-            f"{self.date} {self.start_time}-{self.end_time} "
-            f"({'réservé' if self.is_booked else 'disponible'})"
-        )
-
-
 # ── Appointment ───────────────────────────────────────────────────────────────
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'En attente'),
+        ('pending',   'En attente'),
         ('confirmed', 'Confirmé'),
         ('cancelled', 'Annulé'),
-        ('refused', 'Refusé'),
+        ('refused',   'Refusé'),
         ('completed', 'Terminé'),
     ]
 
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments')
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='appointments')
-    slot = models.OneToOneField(
-        AvailabilitySlot, on_delete=models.SET_NULL, null=True, related_name='appointment'
-    )
-    motif = models.CharField(max_length=300, help_text="Motif de la consultation")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    notes = models.TextField(blank=True, help_text="Notes du médecin (visible patient)")
-    refusal_reason = models.TextField(blank=True, help_text="Raison du refus (si refusé)")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    patient    = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments')
+    doctor     = models.ForeignKey(Doctor,  on_delete=models.CASCADE, related_name='appointments')
+
+    # The booked window — this IS the slot now
+    date       = models.DateField()
+    start_time = models.TimeField()
+    end_time   = models.TimeField()
+
+    motif          = models.CharField(max_length=300)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    notes          = models.TextField(blank=True)
+    refusal_reason = models.TextField(blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Rendez-vous"
+        verbose_name        = "Rendez-vous"
         verbose_name_plural = "Rendez-vous"
-        ordering = ['-created_at']
+        ordering            = ['-created_at']
+        # A doctor can't have two active appointments that overlap on the same date/time
+        unique_together = ('doctor', 'date', 'start_time')
+
+    # ── Validation ────────────────────────────────────────────────────────────
 
     def clean(self):
         super().clean()
-        if self.slot and self.slot.doctor != self.doctor:
-            raise ValidationError({
-                'slot': f"Ce créneau n'appartient pas à ce médecin. Veuillez choisir un créneau du Dr. {self.doctor.user.get_full_name()}."
-            })
+        if self.end_time <= self.start_time:
+            raise ValidationError("L'heure de fin doit être après l'heure de début.")
+
+    # ── Computed helpers ──────────────────────────────────────────────────────
+
+    @property
+    def duration_minutes(self):
+        start_dt = datetime.combine(self.date, self.start_time)
+        end_dt   = datetime.combine(self.date, self.end_time)
+        return int((end_dt - start_dt).seconds / 60)
+
+    @property
+    def is_active(self):
+        return self.status in ('pending', 'confirmed')
+
+    # ── State transitions ─────────────────────────────────────────────────────
+
+    def cancel(self):
+        self.status = 'cancelled'
+        self.save(update_fields=['status', 'updated_at'])
+
+    def confirm(self):
+        self.status = 'confirmed'
+        self.save(update_fields=['status', 'updated_at'])
+
+    def refuse(self, reason=''):
+        self.status    = 'refused'
+        self.refusal_reason = reason
+        self.save(update_fields=['status', 'refusal_reason', 'updated_at'])
+
+    def complete(self, notes=''):
+        self.status = 'completed'
+        self.notes  = notes
+        self.save(update_fields=['status', 'notes', 'updated_at'])
 
     def __str__(self):
         return (
             f"RDV {self.get_status_display()} — "
-            f"{self.patient} → Dr. {self.doctor.user.get_full_name()} "
-            f"({self.slot.date if self.slot else 'pas de créneau'})"
+            f"{self.patient} → Dr.{self.doctor.user.last_name} "
+            f"({self.date} {self.start_time})"
         )
-
-    def cancel(self):
-        """Cancel appointment and free the slot."""
-        self.status = 'cancelled'
-        if self.slot:
-            self.slot.is_booked = False
-            self.slot.save()
-        self.save()
-
-    def confirm(self):
-        self.status = 'confirmed'
-        self.save()
-
-    def refuse(self, reason=''):
-        self.status = 'refused'
-        self.refusal_reason = reason
-        if self.slot:
-            self.slot.is_booked = False
-            self.slot.save()
-        self.save()
-
-
 # ── Notification ──────────────────────────────────────────────────────────────
 
 class Notification(models.Model):

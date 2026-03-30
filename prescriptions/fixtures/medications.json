@@ -1,0 +1,62 @@
+[
+  {
+    "model": "prescriptions.medication",
+    "pk": 1,
+    "fields": {
+      "name": "Metformin",
+      "molecule": "Metformine HCl",
+      "category": "diabetes",
+      "description": "Utilisé pour le diabète de type 2.",
+      "dosage_forms": ["500mg", "850mg", "1000mg"],
+      "side_effects": "Nausées, douleurs abdominales.",
+      "interactions": "Alcool, produits de contraste iodés.",
+      "contraindications": "Insuffisance rénale sévère.",
+      "price_dzd": "450.00",
+      "cnas_covered": true,
+      "requires_prescription": true,
+      "manufacturer": "Saidal",
+      "is_active": true,
+      "created_at": "2026-03-29T13:00:00Z"
+    }
+  },
+  {
+    "model": "prescriptions.medication",
+    "pk": 2,
+    "fields": {
+      "name": "Amoxicilline",
+      "molecule": "Amoxicilline",
+      "category": "antibiotic",
+      "description": "Antibiotique de la famille des pénicillines.",
+      "dosage_forms": ["500mg", "1g"],
+      "side_effects": "Diarrhée, éruption cutanée.",
+      "interactions": "Allopurinol, anticoagulants oraux.",
+      "contraindications": "Allergie aux bétalactamines.",
+      "price_dzd": "320.00",
+      "cnas_covered": true,
+      "requires_prescription": true,
+      "manufacturer": "Biopharm",
+      "is_active": true,
+      "created_at": "2026-03-29T13:00:00Z"
+    }
+  },
+  {
+    "model": "prescriptions.medication",
+    "pk": 3,
+    "fields": {
+      "name": "Doliprane",
+      "molecule": "Paracétamol",
+      "category": "analgesic",
+      "description": "Antalgique et antipyrétique.",
+      "dosage_forms": ["500mg", "1g"],
+      "side_effects": "Rarement réactions allergiques.",
+      "interactions": "Alcool en grande quantité.",
+      "contraindications": "Insuffisance hépatocellulaire sévère.",
+      "price_dzd": "150.00",
+      "cnas_covered": true,
+      "requires_prescription": false,
+      "manufacturer": "Sanofi Algiers",
+      "is_active": true,
+      "created_at": "2026-03-29T13:00:00Z"
+    }
+  }
+]

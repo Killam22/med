@@ -1,120 +1,140 @@
 """Serializers for the appointment management logic."""
-
+from datetime import datetime
 from rest_framework import serializers
 from patients.models import Patient
 from doctors.models import Doctor
-from .models import AvailabilitySlot, Appointment, Review, Notification
+from .models import Appointment, Review, Notification
 
 
-# ── Availability Slot Serializers ─────────────────────────────────────────────
+# ── Slot Serializers ─────────────────────────────────────────────
 
-class AvailabilitySlotSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AvailabilitySlot
-        fields = [
-            'id', 'date', 'start_time', 'end_time',
-            'is_booked',
-        ]
-        read_only_fields = ['is_booked']
+class SlotSerializer(serializers.Serializer):
+    """Read-only representation of a free computed slot."""
+    start_time = serializers.TimeField(format='%H:%M')
+    end_time   = serializers.TimeField(format='%H:%M')
+
+
+class BookAppointmentSerializer(serializers.Serializer):
+    """
+    Utilisé en POST /api/appointments/ et POST /api/appointments/{id}/reschedule/
+    Le client envoie : doctor_id, date, start_time, end_time, motif
+    """
+    doctor_id  = serializers.PrimaryKeyRelatedField(
+        queryset=Doctor.objects.filter(is_active=True),
+        source='doctor',
+    )
+    date       = serializers.DateField()
+    start_time = serializers.TimeField(format='%H:%M', input_formats=['%H:%M', '%H:%M:%S'])
+    end_time   = serializers.TimeField(format='%H:%M', input_formats=['%H:%M', '%H:%M:%S'])
+    motif      = serializers.CharField(max_length=300, trim_whitespace=True)
+
+    def validate_date(self, value):
+        if value < timezone.now().date():
+            raise serializers.ValidationError(
+                "Impossible de réserver une date dans le passé."
+            )
+        return value
 
     def validate(self, data):
-        if data.get('start_time') and data.get('end_time'):
-            if data['start_time'] >= data['end_time']:
-                raise serializers.ValidationError(
-                    "L'heure de début doit être avant l'heure de fin."
-                )
+        if data['end_time'] <= data['start_time']:
+            raise serializers.ValidationError({
+                'end_time': "L'heure de fin doit être après l'heure de début."
+            })
+        # Durée raisonnable : entre 10 min et 4h
+        start_dt = datetime.combine(data['date'], data['start_time'])
+        end_dt   = datetime.combine(data['date'], data['end_time'])
+        duration = (end_dt - start_dt).seconds // 60
+        if duration < 10:
+            raise serializers.ValidationError("La durée minimale d'un rendez-vous est 10 minutes.")
+        if duration > 240:
+            raise serializers.ValidationError("La durée maximale d'un rendez-vous est 4 heures.")
         return data
 
 
-# ── Appointment Serializers ───────────────────────────────────────────────────
+# ── Appointment read (patient view) ──────────────────────────────────────────
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    """Patient-facing appointment serializer."""
-    doctor_name = serializers.SerializerMethodField()
-    doctor_specialty = serializers.SerializerMethodField()
-    slot_date = serializers.SerializerMethodField()
-    slot_start_time = serializers.SerializerMethodField()
-    slot_end_time = serializers.SerializerMethodField()
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    """
+    Utilisé en GET /api/appointments/ et GET /api/appointments/{id}/
+    Visible par le patient — pas de refusal_reason.
+    """
+    doctor_name      = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.speciality', read_only=True)
+    patient_name     = serializers.CharField(source='patient.user.get_full_name', read_only=True)
+    duration_minutes = serializers.IntegerField(read_only=True)
+    status_display   = serializers.CharField(source='get_status_display', read_only=True)
+    has_review       = serializers.SerializerMethodField()
 
     class Meta:
-        model = Appointment
+        model  = Appointment
         fields = [
-            'id', 'doctor', 'doctor_name', 'doctor_specialty',
-            'slot', 'slot_date', 'slot_start_time', 'slot_end_time',
-            'motif', 'status', 'status_display',
-            'notes', 'refusal_reason', 'created_at', 'updated_at',
+            'id',
+            'doctor_name',
+            'doctor_specialty',
+            'patient_name',
+            'date',
+            'start_time',
+            'end_time',
+            'duration_minutes',
+            'motif',
+            'status',
+            'status_display',
+            'notes',          # notes du médecin, visibles au patient
+            'has_review',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = [
-            'status', 'notes', 'refusal_reason', 'created_at', 'updated_at',
-            'doctor_name', 'doctor_specialty',
-        ]
+        read_only_fields = fields  # ce serializer est lecture seule
 
-    def get_doctor_name(self, obj):
-        return f"Dr. {obj.doctor.user.get_full_name()}"
+    def get_has_review(self, obj) -> bool:
+        return hasattr(obj, 'review')
 
-    def get_doctor_specialty(self, obj):
-        return obj.doctor.get_specialty_display()
 
-    def get_slot_date(self, obj):
-        return obj.slot.date if obj.slot else None
-
-    def get_slot_start_time(self, obj):
-        return obj.slot.start_time if obj.slot else None
-
-    def get_slot_end_time(self, obj):
-        return obj.slot.end_time if obj.slot else None
-
-    def validate_slot(self, slot):
-        if slot.is_booked:
-            raise serializers.ValidationError("Ce créneau est déjà réservé.")
-        return slot
-
-    def create(self, validated_data):
-        slot = validated_data['slot']
-        appointment = Appointment.objects.create(**validated_data)
-        slot.is_booked = True
-        slot.save()
-        return appointment
-
+# ── Appointment read (doctor view) ────────────────────────────────────────────
 
 class AppointmentDoctorSerializer(serializers.ModelSerializer):
-    """Doctor-facing appointment serializer (includes patient info)."""
-    patient_name = serializers.SerializerMethodField()
-    patient_age = serializers.SerializerMethodField()
-    patient_phone = serializers.SerializerMethodField()
-    slot_date = serializers.SerializerMethodField()
-    slot_start_time = serializers.SerializerMethodField()
-    slot_end_time = serializers.SerializerMethodField()
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    """
+    Utilisé dans toutes les vues doctor/appointments/
+    Ajoute refusal_reason et les infos patient complètes.
+    """
+    patient_name    = serializers.CharField(source='patient.user.get_full_name', read_only=True)
+    patient_email   = serializers.EmailField(source='patient.user.email', read_only=True)
+    patient_phone   = serializers.CharField(source='patient.phone_number', read_only=True)
+    duration_minutes = serializers.IntegerField(read_only=True)
+    status_display  = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
-        model = Appointment
+        model  = Appointment
         fields = [
-            'id', 'patient', 'patient_name', 'patient_age', 'patient_phone',
-            'slot', 'slot_date', 'slot_start_time', 'slot_end_time',
-            'motif', 'status', 'status_display',
-            'notes', 'refusal_reason', 'created_at', 'updated_at',
+            'id',
+            'patient_name',
+            'patient_email',
+            'patient_phone',
+            'date',
+            'start_time',
+            'end_time',
+            'duration_minutes',
+            'motif',
+            'status',
+            'status_display',
+            'notes',
+            'refusal_reason',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['patient', 'slot', 'motif', 'status', 'created_at', 'updated_at']
+        read_only_fields = fields
 
-    def get_patient_name(self, obj):
-        return obj.patient.user.get_full_name()
 
-    def get_patient_age(self, obj):
-        return obj.patient.age
+# ── Doctor notes update ───────────────────────────────────────────────────────
 
-    def get_patient_phone(self, obj):
-        return obj.patient.user.phone
-
-    def get_slot_date(self, obj):
-        return obj.slot.date if obj.slot else None
-
-    def get_slot_start_time(self, obj):
-        return obj.slot.start_time if obj.slot else None
-
-    def get_slot_end_time(self, obj):
-        return obj.slot.end_time if obj.slot else None
+class AppointmentNotesSerializer(serializers.ModelSerializer):
+    """
+    Utilisé en PATCH /api/doctor/appointments/{id}/notes/
+    Permet au médecin d'ajouter des notes sans passer par CompleteAppointmentView.
+    """
+    class Meta:
+        model  = Appointment
+        fields = ['notes']
 
 
 # ── Notification Serializers ──────────────────────────────────────────────────

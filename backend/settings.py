@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
 
-DEBUG = True
+DEBUG = True  
 
 ALLOWED_HOSTS = ['*']
 
@@ -35,8 +35,10 @@ INSTALLED_APPS = [
     'patients',
     'pharmacy',
     'caretaker',
+    'consultations',
     'appointments',
-]
+    'prescriptions',
+    ]
 
 # ── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
@@ -50,7 +52,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'appointment_backend.urls'
+ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
     {
@@ -68,7 +70,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'appointment_backend.wsgi.application'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
 # ── Database ─────────────────────────────────────────────────────────────────
 
