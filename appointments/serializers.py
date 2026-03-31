@@ -1,5 +1,6 @@
 """Serializers for the appointment management logic."""
 from datetime import datetime
+from django.utils import timezone
 from rest_framework import serializers
 from patients.models import Patient
 from doctors.models import Doctor
@@ -20,7 +21,7 @@ class BookAppointmentSerializer(serializers.Serializer):
     Le client envoie : doctor_id, date, start_time, end_time, motif
     """
     doctor_id  = serializers.PrimaryKeyRelatedField(
-        queryset=Doctor.objects.filter(is_active=True),
+        queryset=Doctor.objects.all(),
         source='doctor',
     )
     date       = serializers.DateField()
@@ -40,15 +41,39 @@ class BookAppointmentSerializer(serializers.Serializer):
             raise serializers.ValidationError({
                 'end_time': "L'heure de fin doit être après l'heure de début."
             })
-        # Durée raisonnable : entre 10 min et 4h
-        start_dt = datetime.combine(data['date'], data['start_time'])
-        end_dt   = datetime.combine(data['date'], data['end_time'])
-        duration = (end_dt - start_dt).seconds // 60
-        if duration < 10:
-            raise serializers.ValidationError("La durée minimale d'un rendez-vous est 10 minutes.")
-        if duration > 240:
-            raise serializers.ValidationError("La durée maximale d'un rendez-vous est 4 heures.")
+
+        # Vérifier que le créneau demandé existe bien dans les disponibilités réelles du médecin
+        from appointments.services import get_available_slots
+        doctor     = data['doctor']
+        date       = data['date']
+        start_time = data['start_time']
+        end_time   = data['end_time']
+
+        available = get_available_slots(doctor, date)
+
+        if not available:
+            raise serializers.ValidationError(
+                f"Le médecin n'a aucun créneau disponible le {date}. "
+                f"Consultez GET /api/doctors/{doctor.pk}/availability/?date={date} pour voir ses disponibilités."
+            )
+
+        # Le créneau demandé doit correspondre exactement à un créneau libre
+        valid_slot = any(
+            s['start_time'] == start_time and s['end_time'] == end_time
+            for s in available
+        )
+        if not valid_slot:
+            slots_str = ", ".join(
+                f"{s['start_time'].strftime('%H:%M')}–{s['end_time'].strftime('%H:%M')}"
+                for s in available
+            )
+            raise serializers.ValidationError(
+                f"Le créneau {start_time.strftime('%H:%M')}–{end_time.strftime('%H:%M')} n'est pas disponible. "
+                f"Créneaux libres : {slots_str}"
+            )
+
         return data
+
 
 
 # ── Appointment read (patient view) ──────────────────────────────────────────
@@ -59,7 +84,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     Visible par le patient — pas de refusal_reason.
     """
     doctor_name      = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
-    doctor_specialty = serializers.CharField(source='doctor.speciality', read_only=True)
+    doctor_specialty = serializers.CharField(source='doctor.specialty', read_only=True)
     patient_name     = serializers.CharField(source='patient.user.get_full_name', read_only=True)
     duration_minutes = serializers.IntegerField(read_only=True)
     status_display   = serializers.CharField(source='get_status_display', read_only=True)

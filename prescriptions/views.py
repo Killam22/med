@@ -1,7 +1,6 @@
-from django.shortcuts import render
-
 import base64
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -94,7 +93,7 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='qr')
     def qr_code(self, request, pk=None):
-        """Retourne l'image QR (JSON base64 par défaut, ou PNG direct avec ?format=image)."""
+        """Retourne le QR en JSON base64. Pour l'image PNG directe, voir /api/prescriptions/{id}/qr-image/"""
         prescription = self.get_object()
         qr_token     = getattr(prescription, 'qr_token', None)
 
@@ -102,17 +101,12 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
             return Response({'error': 'QR token introuvable.'}, status=404)
 
         qr_base64 = QRCodeService.generate_qr_image(qr_token.token)
-        
-        # Optionnel : Si l'utilisateur demande l'image PNG
-        if request.query_params.get('format') == 'image':
-            image_data = base64.b64decode(qr_base64)
-            return HttpResponse(image_data, content_type="image/png")
-
         return Response({
             'qr_base64': qr_base64,
             'token':     qr_token.token,
             'expires_at': qr_token.expires_at,
             'is_valid':  qr_token.is_valid(),
+            'image_url': request.build_absolute_uri(f'/api/prescriptions/{prescription.pk}/qr-image/'),
         })
 
     @action(detail=True, methods=['get'], url_path='pdf')
@@ -185,14 +179,18 @@ class QRScanView(APIView):
     """
     permission_classes = [IsAuthenticated, IsPharmacist]
 
-    def post(self, request):
-        token = request.data.get('token')
-        if not token:
-            return Response(
-                {'error': 'Token requis.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    # Nécessaire pour que l'interface DRF affiche le bon formulaire
+    def get_serializer(self, *args, **kwargs):
+        from .serializers import QRScanSerializer
+        return QRScanSerializer(*args, **kwargs)
 
+    def post(self, request):
+        from .serializers import QRScanSerializer
+        serializer = QRScanSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        token = serializer.validated_data['token']
         result = QRCodeService.validate_and_scan(token, request.user)
 
         if not result['valid']:
@@ -201,10 +199,10 @@ class QRScanView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        serializer = PrescriptionSerializer(result['prescription'])
+        prescription_serializer = PrescriptionSerializer(result['prescription'])
         return Response({
             'message': 'QR code validé avec succès.',
-            'prescription': serializer.data,
+            'prescription': prescription_serializer.data,
         })
 
 
@@ -253,3 +251,41 @@ class MedicationViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
+# ── Vues standalone (hors DRF) pour le rendu direct navigateur ───────────────
+
+class QRImageView(APIView):
+    """
+    GET /api/prescriptions/{uuid}/qr-image/
+    Retourne directement l'image QR en PNG — affichable dans un <img> ou navigateur.
+    Bypasse le content-negotiation DRF qui forcerait un rendu JSON.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from .models import Prescription
+        prescription = get_object_or_404(Prescription, pk=pk)
+        qr_token = getattr(prescription, 'qr_token', None)
+        if not qr_token:
+            return HttpResponse("QR token introuvable.", status=404, content_type="text/plain")
+
+        qr_base64  = QRCodeService.generate_qr_image(qr_token.token)
+        image_data = base64.b64decode(qr_base64)
+        return HttpResponse(image_data, content_type="image/png")
+
+
+class PrescriptionPDFView(APIView):
+    """
+    GET /api/prescriptions/{uuid}/pdf-download/
+    Retourne directement le PDF — téléchargeable dans le navigateur.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from .models import Prescription
+        prescription = get_object_or_404(Prescription, pk=pk)
+        pdf_bytes = PDFService.generate(prescription)
+        response  = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'inline; filename="ordonnance-{str(prescription.id)[:8]}.pdf"'
+        )
+        return response

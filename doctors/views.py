@@ -1,15 +1,17 @@
 from django.utils import timezone
-from rest_framework import generics, status, filters
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import generics, filters, viewsets, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Doctor
-from appointments.models import AvailabilitySlot
-from .serializers import DoctorListSerializer, DoctorDetailSerializer
-from appointments.serializers import AvailabilitySlotSerializer
+from .models import Doctor, WeeklySchedule, DayOff
+from .serializers import (
+    DoctorListSerializer, DoctorDetailSerializer,
+    WeeklyScheduleSerializer, DayOffSerializer,
+)
 from .filters import DoctorFilter
 from appointments.permissions import IsDoctor
+
 
 class DoctorListView(generics.ListAPIView):
     """GET /api/doctors/ — search doctors with filters."""
@@ -21,36 +23,20 @@ class DoctorListView(generics.ListAPIView):
     ordering = ['-rating']
 
     def get_queryset(self):
-        return Doctor.objects.select_related('user').prefetch_related('slots')
+        return Doctor.objects.select_related('user').prefetch_related('schedules', 'days_off')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['filter_date'] = self.request.query_params.get('date')
         return context
 
+
 class DoctorDetailView(generics.RetrieveAPIView):
     """GET /api/doctors/{id}/ — full doctor profile."""
     serializer_class = DoctorDetailSerializer
     permission_classes = [IsAuthenticated]
-    queryset = Doctor.objects.select_related('user').prefetch_related('slots')
+    queryset = Doctor.objects.select_related('user').prefetch_related('schedules', 'days_off')
 
-class DoctorSlotsView(generics.ListAPIView):
-    """GET /api/doctors/{doctor_id}/slots/ — available slots for a doctor."""
-    serializer_class = AvailabilitySlotSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        doctor_id = self.kwargs['doctor_id']
-        qs = AvailabilitySlot.objects.filter(
-            doctor_id=doctor_id,
-            is_booked=False,
-            date__gte=timezone.now().date(),
-        ).order_by('date', 'start_time')
-
-        date = self.request.query_params.get('date')
-        if date:
-            qs = qs.filter(date=date)
-        return qs
 
 class DoctorProfileView(generics.RetrieveUpdateAPIView):
     """GET / PUT /api/doctors/profile/ — own doctor profile."""
@@ -60,39 +46,75 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user.doctor_profile
 
-class DoctorSlotListCreateView(generics.ListCreateAPIView):
-    """GET / POST /api/doctors/slots/ — list and create slots."""
-    serializer_class = AvailabilitySlotSerializer
+
+# ── Doctor Schedule Management ────────────────────────────────────────────────────
+
+class WeeklyScheduleViewSet(viewsets.ModelViewSet):
+    """
+    CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+    GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+    POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+    GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+    PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+    PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+    DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+    """
+    serializer_class   = WeeklyScheduleSerializer
     permission_classes = [IsDoctor]
 
     def get_queryset(self):
+        return WeeklySchedule.objects.filter(
+            doctor=self.request.user.doctor_profile
+        ).order_by('day_of_week')
+
+    def perform_create(self, serializer):
         doctor = self.request.user.doctor_profile
-        qs = AvailabilitySlot.objects.filter(doctor=doctor).order_by('date', 'start_time')
-        date = self.request.query_params.get('date')
-        is_booked = self.request.query_params.get('is_booked')
-        if date:
-            qs = qs.filter(date=date)
-        if is_booked is not None:
-            qs = qs.filter(is_booked=is_booked.lower() == 'true')
-        return qs
+        day    = serializer.validated_data['day_of_week']
+        # Si un planning existe déjà pour ce jour, on le met à jour
+        existing = WeeklySchedule.objects.filter(doctor=doctor, day_of_week=day).first()
+        if existing:
+            for attr, value in serializer.validated_data.items():
+                setattr(existing, attr, value)
+            existing.save()
+        else:
+            serializer.save(doctor=doctor)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        doctor = request.user.doctor_profile
+        day    = serializer.validated_data['day_of_week']
+        existing = WeeklySchedule.objects.filter(doctor=doctor, day_of_week=day).first()
+        if existing:
+            # mise à jour en place
+            for attr, value in serializer.validated_data.items():
+                setattr(existing, attr, value)
+            existing.save()
+            return Response(
+                WeeklyScheduleSerializer(existing).data,
+                status=status.HTTP_200_OK
+            )
+        serializer.save(doctor=doctor)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class DayOffViewSet(viewsets.ModelViewSet):
+    """
+    Gestion des congés / jours de fermeture du médecin connecté.
+
+    GET    /api/doctor/days-off/          → liste de ses congés
+    POST   /api/doctor/days-off/          → déclarer un congé (date unique par médecin)
+    DELETE /api/doctor/days-off/{id}/     → annuler un congé
+    """
+    serializer_class   = DayOffSerializer
+    permission_classes = [IsDoctor]
+    http_method_names  = ['get', 'post', 'delete', 'head', 'options']  # pas de PUT/PATCH
+
+    def get_queryset(self):
+        return DayOff.objects.filter(
+            doctor=self.request.user.doctor_profile
+        ).order_by('date')
 
     def perform_create(self, serializer):
         serializer.save(doctor=self.request.user.doctor_profile)
-
-class DoctorSlotDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET / PUT / DELETE /api/doctors/slots/{id}/."""
-    serializer_class = AvailabilitySlotSerializer
-    permission_classes = [IsDoctor]
-
-    def get_queryset(self):
-        return AvailabilitySlot.objects.filter(doctor=self.request.user.doctor_profile)
-
-    def destroy(self, request, *args, **kwargs):
-        slot = self.get_object()
-        if slot.is_booked:
-            return Response(
-                {"detail": "Impossible de supprimer un créneau déjà réservé."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        slot.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)

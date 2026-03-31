@@ -1,21 +1,27 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     DoctorListView,
     DoctorDetailView,
-    DoctorSlotsView,
     DoctorProfileView,
-    DoctorSlotListCreateView,
-    DoctorSlotDetailView
+    WeeklyScheduleViewSet,
+    DayOffViewSet,
 )
 
+# Router pour les ViewSets du planning
+# Ces routes seront accessibles sous /api/doctors/my-schedule/ et /api/doctors/days-off/
+router = DefaultRouter()
+router.register(r'my-schedule', WeeklyScheduleViewSet, basename='doctor-schedule-mgmt')
+router.register(r'days-off',    DayOffViewSet,          basename='doctor-days-off')
+
 urlpatterns = [
-    # Search and List
-    path('list/', DoctorListView.as_view(), name='doctor_list'),
-    path('<int:pk>/', DoctorDetailView.as_view(), name='doctor_detail'),
-    path('<int:doctor_id>/slots/', DoctorSlotsView.as_view(), name='doctor_slots'),
-    
-    # Doctor's own actions
-    path('profile/', DoctorProfileView.as_view(), name='doctor_profile'),
-    path('slots/', DoctorSlotListCreateView.as_view(), name='doctor_slots_list_create'),
-    path('slots/<int:pk>/', DoctorSlotDetailView.as_view(), name='doctor_slot_detail'),
+    # Inclusion des routes générées par le router
+    path('', include(router.urls)),
+
+    # Search and List  → /api/doctors/list/
+    path('list/',         DoctorListView.as_view(),    name='doctor_list'),
+    # Detail            → /api/doctors/{id}/
+    path('<int:pk>/',     DoctorDetailView.as_view(),  name='doctor_detail'),
+    # Own profile       → /api/doctors/profile/
+    path('profile/',     DoctorProfileView.as_view(),  name='doctor_profile'),
 ]

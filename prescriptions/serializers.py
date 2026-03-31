@@ -48,3 +48,11 @@ class PrescriptionCreateSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             PrescriptionItem.objects.create(prescription=prescription, **item_data)
         return prescription
+
+
+class QRScanSerializer(serializers.Serializer):
+    """Serializer pour le formulaire de scan QR dans l'interface DRF."""
+    token = serializers.CharField(
+        max_length=200,
+        help_text="Collez ici le token QR récupéré depuis GET /api/prescriptions/{id}/qr/"
+    )

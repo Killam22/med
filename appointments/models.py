@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from datetime import datetime
 
 # Import models from other apps
 from patients.models import Patient
@@ -25,9 +26,9 @@ class Appointment(models.Model):
     doctor     = models.ForeignKey(Doctor,  on_delete=models.CASCADE, related_name='appointments')
 
     # The booked window — this IS the slot now
-    date       = models.DateField()
-    start_time = models.TimeField()
-    end_time   = models.TimeField()
+    date       = models.DateField(default=timezone.now)
+    start_time = models.TimeField(default=timezone.now)
+    end_time   = models.TimeField(default=timezone.now)
 
     motif          = models.CharField(max_length=300)
     status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
