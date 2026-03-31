@@ -1,7 +1,48 @@
 from rest_framework import serializers
-from .models import Doctor
-from appointments.models import AvailabilitySlot
-from appointments.serializers import AvailabilitySlotSerializer
+from .models import Doctor, WeeklySchedule, DayOff
+from appointments.services import get_available_slots
+
+
+# ── Schedule Serializers ────────────────────────────────────────────────────
+
+class WeeklyScheduleSerializer(serializers.ModelSerializer):
+    """
+    GET  /api/doctor/my-schedule/         → liste des jours de travail
+    POST /api/doctor/my-schedule/         → ajouter/remplacer un jour
+    PUT  /api/doctor/my-schedule/{id}/    → modifier les heures d'un jour
+    DELETE /api/doctor/my-schedule/{id}/  → supprimer un jour
+    """
+    day_label = serializers.CharField(source='get_day_of_week_display', read_only=True)
+
+    class Meta:
+        model  = WeeklySchedule
+        fields = ['id', 'day_of_week', 'day_label', 'start_time', 'end_time', 'slot_duration', 'is_active']
+        read_only_fields = ['id', 'day_label']
+
+    def validate(self, data):
+        if data.get('end_time') and data.get('start_time'):
+            if data['end_time'] <= data['start_time']:
+                raise serializers.ValidationError("L'heure de fin doit être après l'heure de début.")
+        return data
+
+
+class DayOffSerializer(serializers.ModelSerializer):
+    """
+    GET    /api/doctor/days-off/        → liste des congés
+    POST   /api/doctor/days-off/        → ajouter un congé
+    DELETE /api/doctor/days-off/{id}/   → supprimer un congé
+    """
+    class Meta:
+        model  = DayOff
+        fields = ['id', 'date', 'reason']
+        read_only_fields = ['id']
+
+    def validate_date(self, value):
+        from django.utils import timezone
+        if value < timezone.now().date():
+            raise serializers.ValidationError("Impossible d'ajouter un congé dans le passé.")
+        return value
+
 
 class DoctorListSerializer(serializers.ModelSerializer):
     """Compact doctor info for search results."""
@@ -23,16 +64,17 @@ class DoctorListSerializer(serializers.ModelSerializer):
         ]
 
     def get_available_slots_for_date(self, obj):
+        from datetime import date
         from django.utils import timezone
         request_date = self.context.get('filter_date')
         if request_date:
-            slots = obj.slots.filter(date=request_date, is_booked=False).order_by('start_time')
+            try:
+                target = date.fromisoformat(request_date)
+            except (ValueError, TypeError):
+                return []
         else:
-            slots = obj.slots.filter(
-                is_booked=False,
-                date__gte=timezone.now().date()
-            ).order_by('date', 'start_time')[:4]
-        return AvailabilitySlotSerializer(slots, many=True).data
+            target = timezone.now().date()
+        return get_available_slots(obj, target)
 
 
 class DoctorDetailSerializer(serializers.ModelSerializer):
@@ -42,7 +84,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     available_slots = serializers.SerializerMethodField()
-    
+
     gender = serializers.CharField(source='user.sex', required=False, allow_blank=True)
     address = serializers.CharField(source='user.address', required=False, allow_blank=True)
     city = serializers.CharField(source='user.city', required=False, allow_blank=True)
@@ -62,11 +104,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
 
     def get_available_slots(self, obj):
         from django.utils import timezone
-        slots = obj.slots.filter(
-            is_booked=False,
-            date__gte=timezone.now().date()
-        ).order_by('date', 'start_time')
-        return AvailabilitySlotSerializer(slots, many=True).data
+        return get_available_slots(obj, timezone.now().date())
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})

@@ -1,5 +1,7 @@
 """Views for the appointment management logic."""
 
+from datetime import date, timedelta
+
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -17,9 +19,9 @@ from .serializers import (
     NotificationSerializer,
     ReviewSerializer,
 )
-
 from .services import book_appointment, get_available_slots, get_available_slots_range
 from .permissions import IsPatient, IsDoctor
+
 
 # ── Availability (public) ─────────────────────────────────────────────────────
 
@@ -27,11 +29,12 @@ class DoctorAvailabilityView(APIView):
     """
     GET /api/doctors/{doctor_id}/availability/?date=2025-06-16
     GET /api/doctors/{doctor_id}/availability/?from=2025-06-16&to=2025-06-23
+    No auth required — public endpoint for patients browsing.
     """
 
     def get(self, request, doctor_id):
         try:
-            doctor = Doctor.objects.get(pk=doctor_id, is_active=True)
+            doctor = Doctor.objects.get(pk=doctor_id)
         except Doctor.DoesNotExist:
             return Response({"detail": "Médecin introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -65,8 +68,11 @@ class DoctorAvailabilityView(APIView):
                 return Response(get_available_slots_range(doctor, today, today + timedelta(days=6)))
 
         except ValueError:
-            return Response({"detail": "Format de date invalide. Utilisez YYYY-MM-DD."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Format de date invalide. Utilisez YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 # ── Patient Appointment Views ──────────────────────────────────────────────────
 
@@ -112,8 +118,6 @@ class PatientAppointmentListCreateView(generics.ListCreateAPIView):
         )
 
 
-
-
 class PatientAppointmentDetailView(generics.RetrieveAPIView):
     """GET /api/appointments/{id}/ — appointment detail (patient)."""
     serializer_class = AppointmentSerializer
@@ -148,6 +152,7 @@ class CancelAppointmentView(APIView):
         )
         return Response({"detail": "Rendez-vous annulé."}, status=status.HTTP_200_OK)
 
+
 class RescheduleAppointmentView(APIView):
     """POST /api/appointments/{id}/reschedule/"""
     permission_classes = [IsPatient]
@@ -166,7 +171,6 @@ class RescheduleAppointmentView(APIView):
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
 
-        # Cancel the current one, then book the new one atomically
         try:
             from django.db import transaction
             with transaction.atomic():
@@ -184,9 +188,11 @@ class RescheduleAppointmentView(APIView):
 
         return Response(AppointmentSerializer(new_appointment).data, status=status.HTTP_200_OK)
 
+
 # ── Doctor Appointment Management ─────────────────────────────────────────────
 
 class DoctorAppointmentListView(generics.ListAPIView):
+    """GET /api/doctor/appointments/ — doctor sees all their appointments."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
 
@@ -198,25 +204,10 @@ class DoctorAppointmentListView(generics.ListAPIView):
         if d := self.request.query_params.get('date'):
             qs = qs.filter(date=d)
         return qs.order_by('date', 'start_time')
-    """GET /api/doctor/appointments/ — doctor sees all their appointments."""
-    serializer_class = AppointmentDoctorSerializer
-    permission_classes = [IsDoctor]
-
-    def get_queryset(self):
-        doctor = self.request.user.doctor_profile
-        qs = Appointment.objects.filter(doctor=doctor).select_related(
-            'patient__user', 'slot'
-        )
-        status_filter = self.request.query_params.get('status')
-        date = self.request.query_params.get('date')
-        if status_filter:
-            qs = qs.filter(status=status_filter)
-        if date:
-            qs = qs.filter(slot__date=date)
-        return qs.order_by('slot__date', 'slot__start_time')
 
 
 class DoctorDailyScheduleView(generics.ListAPIView):
+    """GET /api/doctor/schedule/ — doctor's appointments for a given day (default: today)."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
 
@@ -239,8 +230,8 @@ class DoctorPendingAppointmentsView(generics.ListAPIView):
         doctor = self.request.user.doctor_profile
         return Appointment.objects.filter(
             doctor=doctor,
-            status='pending'
-        ).select_related('patient__user', 'slot').order_by('slot__date', 'slot__start_time')
+            status='pending',
+        ).select_related('patient__user').order_by('date', 'start_time')
 
 
 class DoctorAppointmentDetailView(generics.RetrieveAPIView):
@@ -253,6 +244,7 @@ class DoctorAppointmentDetailView(generics.RetrieveAPIView):
 
 
 class ConfirmAppointmentView(APIView):
+    """POST /api/doctor/appointments/{id}/confirm/"""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
@@ -275,6 +267,7 @@ class ConfirmAppointmentView(APIView):
 
 
 class RefuseAppointmentView(APIView):
+    """POST /api/doctor/appointments/{id}/refuse/"""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
@@ -297,19 +290,7 @@ class RefuseAppointmentView(APIView):
 
 
 class CompleteAppointmentView(APIView):
-    permission_classes = [IsDoctor]
-
-    def post(self, request, pk):
-        try:
-            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
-        except Appointment.DoesNotExist:
-            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
-
-        if appt.status != 'confirmed':
-            return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        appt.complete(notes=request.data.get('notes', ''))
-        return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)class CompleteAppointmentView(APIView):
+    """POST /api/doctor/appointments/{id}/complete/"""
     permission_classes = [IsDoctor]
 
     def post(self, request, pk):
@@ -345,7 +326,7 @@ class NotificationMarkReadView(APIView):
             notif = Notification.objects.get(pk=pk, user=request.user)
         except Notification.DoesNotExist:
             return Response({"detail": "Notification introuvable."}, status=status.HTTP_404_NOT_FOUND)
-        
+
         notif.is_read = True
         notif.save()
         return Response({"detail": "Notification marquée comme lue."}, status=status.HTTP_200_OK)
@@ -364,11 +345,11 @@ class CreateReviewView(generics.CreateAPIView):
             appointment = Appointment.objects.get(pk=appointment_id, patient=self.request.user.patient_profile)
         except Appointment.DoesNotExist:
             raise ValidationError({"detail": "Rendez-vous introuvable."})
-        
+
         serializer.save(
             appointment=appointment,
             patient=appointment.patient,
-            doctor=appointment.doctor
+            doctor=appointment.doctor,
         )
 
 
