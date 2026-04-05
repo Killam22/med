@@ -313,6 +313,7 @@ class CompleteAppointmentView(APIView):
             return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.complete(notes=request.data.get('notes', ''))
+<<<<<<< HEAD
         from notifications.models import Notification
         Notification.objects.create(
             user=appt.patient.user,
@@ -323,6 +324,36 @@ class CompleteAppointmentView(APIView):
         return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
 
 
+=======
+        return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
+
+
+# ── Notification Views ────────────────────────────────────────────────────────
+
+class NotificationListView(generics.ListAPIView):
+    """GET /api/notifications/ — user sees their notifications."""
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+
+class NotificationMarkReadView(APIView):
+    """POST /api/notifications/{id}/read/ — mark notification as read."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            notif = Notification.objects.get(pk=pk, user=request.user)
+        except Notification.DoesNotExist:
+            return Response({"detail": "Notification introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        notif.is_read = True
+        notif.save()
+        return Response({"detail": "Notification marquée comme lue."}, status=status.HTTP_200_OK)
+
+>>>>>>> 028fdeda6401843c937a101c5786c24dbf3a6f4f
 
 # ── Review Views ──────────────────────────────────────────────────────────────
 

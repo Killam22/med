@@ -93,7 +93,7 @@ class DayOff(models.Model):
         verbose_name = "Jour de congé"
 
     def __str__(self):
-        return f"Dr.{self.doctor.user.last_name} off — {self.date} "
+        return f"Dr.{self.doctor.user.last_name} off — {self.date}"
 
 class DoctorQualification(models.Model):
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='qualifications')
@@ -104,4 +104,4 @@ class DoctorQualification(models.Model):
     scan = models.FileField(upload_to='doctor_qualifications/')
 
     def __str__(self):
-        return f"{self.title} - {self.doctor.user.last_name}"
+        return f"{self.title} - {self.doctor.user.last_name}"
