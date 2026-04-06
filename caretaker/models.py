@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.conf import settings
 
@@ -8,6 +9,8 @@ class Caretaker(models.Model):
     bio = models.TextField(blank=True)
     availability_area = models.CharField(max_length=200, blank=True)
     is_verified = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True, help_text="Visible dans les recherches des patients")
+    professional_license_number = models.CharField(max_length=100, null=True, blank=True)
     
     def __str__(self):
         return f"Soin à domicile - {self.user.get_full_name()}"
@@ -20,3 +23,52 @@ class CaretakerService(models.Model):
 
     def __str__(self):
         return f"{self.service_name} ({self.caretaker.user.get_full_name()})"
+
+class CareRequest(models.Model):
+    """La demande (ou offre d'emploi) envoyée par le patient au garde-malade"""
+    class Status(models.TextChoices):
+        PENDING   = 'pending',   'En attente'
+        ACCEPTED  = 'accepted',  'Acceptée'
+        REJECTED  = 'rejected',  'Refusée'
+        COMPLETED = 'completed', 'Terminée'
+        CANCELLED = 'cancelled', 'Annulée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_care_requests')
+    caretaker = models.ForeignKey(Caretaker, on_delete=models.CASCADE, related_name='received_requests')
+    
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    patient_message = models.TextField(help_text="Détails des tâches et besoins médicaux")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Demande {self.status} : Patient {self.patient.get_full_name()} -> {self.caretaker.user.get_full_name()}"
+
+class CareMessage(models.Model):
+    """Messagerie instantanée liée à une demande spécifique"""
+    request = models.ForeignKey(CareRequest, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+class CaretakerCertificate(models.Model):
+    caretaker = models.ForeignKey(Caretaker, on_delete=models.CASCADE, related_name='certificates')
+    name = models.CharField(max_length=200)
+    organization = models.CharField(max_length=200)
+    date_obtained = models.DateField()
+    expiration_date = models.DateField(null=True, blank=True)
+    scan = models.FileField(upload_to='caretaker_certificates/')
+
+    def __str__(self):
+        return f"{self.name} - {self.caretaker.user.last_name}"

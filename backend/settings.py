@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     'consultations',
     'appointments',
     'prescriptions',
+    'medications',
+    'notifications',
+    'dashboard',
     ]
 
 # ── Middleware ───────────────────────────────────────────────────────────────

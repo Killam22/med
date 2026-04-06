@@ -64,3 +64,17 @@ class SymptomAnalysisListView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(patient=self.request.user.patient_profile)
+
+class DoctorPatientsListView(generics.ListAPIView):
+    """GET /api/patients/my-patients/ — Liste des patients ayant un RDV avec le médecin."""
+    serializer_class = PatientSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        from rest_framework.exceptions import PermissionDenied
+        if getattr(user, 'role', None) != 'doctor':
+            raise PermissionDenied("Accès réservé aux médecins.")
+        
+        # Récupère tous les patients liés aux rendez-vous de ce médecin (sans doublons)
+        return Patient.objects.filter(appointments__doctor__user=user).distinct()

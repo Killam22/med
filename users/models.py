@@ -29,7 +29,9 @@ class CustomUser(AbstractUser):
     
     # Common profile fields
     id_card_number = models.CharField(max_length=50, blank=True)
-    id_card_photo = models.ImageField(upload_to='id_cards/', null=True, blank=True)
+    id_card_recto = models.ImageField(upload_to='id_cards/', null=True, blank=True)
+    id_card_verso = models.ImageField(upload_to='id_cards/', null=True, blank=True)
+    photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
     address = models.TextField(blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
     city = models.CharField(max_length=100, blank=True)

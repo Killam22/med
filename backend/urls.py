@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/', include('appointments.urls')),
     path('api/', include('consultations.urls')),
     path('api/', include('prescriptions.urls')),
+    path('api/medications/', include('medications.urls')),
 
     # ── DRF Browsable API ────────────────────────────────────────────────────
     path('api-auth/', include('rest_framework.urls')),

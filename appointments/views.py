@@ -11,12 +11,11 @@ from rest_framework.exceptions import ValidationError
 
 from patients.models import Patient
 from doctors.models import Doctor
-from .models import Appointment, Notification, Review
+from .models import Appointment, Review
 from .serializers import (
     AppointmentSerializer,
     AppointmentDoctorSerializer,
     BookAppointmentSerializer,
-    NotificationSerializer,
     ReviewSerializer,
 )
 from .services import book_appointment, get_available_slots, get_available_slots_range
@@ -112,6 +111,14 @@ class PatientAppointmentListCreateView(generics.ListCreateAPIView):
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=appointment.doctor.user,
+            title="Nouvelle réservation",
+            message=f"Nouvelle réservation : {appointment.patient.user.get_full_name()} le {appointment.date}",
+            notification_type=Notification.NotificationType.APPOINTMENT
+        )
+
         return Response(
             AppointmentSerializer(appointment).data,
             status=status.HTTP_201_CREATED,
@@ -144,11 +151,12 @@ class CancelAppointmentView(APIView):
             )
 
         appointment.cancel()
+        from notifications.models import Notification
         Notification.objects.create(
             user=appointment.doctor.user,
-            message=f"{appointment.patient.user.get_full_name()} a annulé son RDV du {appointment.date}.",
-            notification_type='status_change',
-            related_appointment=appointment,
+            title="Annulation",
+            message=f"Le patient {appointment.patient.user.get_full_name()} a annulé son rendez-vous.",
+            notification_type=Notification.NotificationType.APPOINTMENT
         )
         return Response({"detail": "Rendez-vous annulé."}, status=status.HTTP_200_OK)
 
@@ -257,11 +265,12 @@ class ConfirmAppointmentView(APIView):
             return Response({"detail": "Seuls les rendez-vous en attente peuvent être confirmés."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.confirm()
+        from notifications.models import Notification
         Notification.objects.create(
             user=appt.patient.user,
+            title="Rendez-vous confirmé",
             message=f"Votre RDV avec Dr.{appt.doctor.user.last_name} est confirmé.",
-            notification_type='status_change',
-            related_appointment=appt,
+            notification_type=Notification.NotificationType.APPOINTMENT
         )
         return Response({"detail": "Confirmé."}, status=status.HTTP_200_OK)
 
@@ -280,11 +289,12 @@ class RefuseAppointmentView(APIView):
             return Response({"detail": "Ce rendez-vous ne peut pas être refusé."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.refuse(reason=request.data.get('reason', ''))
+        from notifications.models import Notification
         Notification.objects.create(
             user=appt.patient.user,
-            message=f"Votre demande avec Dr.{appt.doctor.user.last_name} a été refusée.",
-            notification_type='status_change',
-            related_appointment=appt,
+            title="Rendez-vous annulé",
+            message=f"Le Dr. {appt.doctor.user.last_name} a dû annuler votre rendez-vous. Veuillez choisir un autre créneau.",
+            notification_type=Notification.NotificationType.APPOINTMENT
         )
         return Response({"detail": "Refusé."}, status=status.HTTP_200_OK)
 
@@ -303,6 +313,18 @@ class CompleteAppointmentView(APIView):
             return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.complete(notes=request.data.get('notes', ''))
+<<<<<<< HEAD
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=appt.patient.user,
+            title="Consultation terminée",
+            message="Consultation terminée. Ordonnance disponible.",
+            notification_type=Notification.NotificationType.APPOINTMENT
+        )
+        return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
+
+
+=======
         return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
 
 
@@ -331,6 +353,7 @@ class NotificationMarkReadView(APIView):
         notif.save()
         return Response({"detail": "Notification marquée comme lue."}, status=status.HTTP_200_OK)
 
+>>>>>>> 028fdeda6401843c937a101c5786c24dbf3a6f4f
 
 # ── Review Views ──────────────────────────────────────────────────────────────
 

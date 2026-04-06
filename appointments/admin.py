@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Appointment, Notification, Review
+from .models import Appointment, Review
 
 
 @admin.register(Appointment)
@@ -13,14 +13,6 @@ class AppointmentAdmin(admin.ModelAdmin):
     ]
     readonly_fields = ['created_at', 'updated_at']
     raw_id_fields = ['patient', 'doctor']
-
-
-@admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['user', 'message', 'notification_type', 'is_read', 'created_at']
-    list_filter = ['notification_type', 'is_read', 'created_at']
-    search_fields = ['user__email', 'message']
-    raw_id_fields = ['user', 'related_appointment']
 
 
 @admin.register(Review)

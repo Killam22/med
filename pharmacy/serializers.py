@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Pharmacist, PharmacyBranch, PharmacyOrder
+from .models import Pharmacist, PharmacyBranch, PharmacyOrder, PharmacyStock
+from medications.serializers import MedicationSerializer
 from prescriptions.serializers import PrescriptionSerializer, PrescriptionItemSerializer
 from prescriptions.models import Prescription
 
@@ -42,19 +43,39 @@ class PharmacyOrderSerializer(serializers.ModelSerializer):
         ).data
 
 class PharmacyOrderCreateSerializer(serializers.ModelSerializer):
+    prescription = serializers.PrimaryKeyRelatedField(
+        queryset=Prescription.objects.all(), required=False, allow_null=True
+    )
+    
     class Meta:
         model  = PharmacyOrder
-        fields = ['prescription', 'patient_message']
+        fields = [
+            'prescription', 'patient_message', 'order_type', 
+            'withdrawal_method', 'caretaker'
+        ]
 
-    def validate_prescription(self, value):
-        user = self.context['request'].user
-        # Si le patient est lié à l'utilisateur, on vérifie
-        if hasattr(user, 'patient_profile'):
-             if value.patient != user:
-                raise serializers.ValidationError("Cette ordonnance ne vous appartient pas.")
-        if value.status != Prescription.Status.ACTIVE:
-            raise serializers.ValidationError("L'ordonnance n'est pas active.")
-        return value
+    def validate(self, data):
+        order_type = data.get('order_type', PharmacyOrder.OrderType.PRESCRIPTION)
+        prescription = data.get('prescription')
+
+        if order_type == PharmacyOrder.OrderType.PRESCRIPTION:
+            if not prescription:
+                raise serializers.ValidationError({"prescription": "Une ordonnance est requise pour ce type de commande."})
+                
+            user = self.context['request'].user
+            # Vérifier si l'ordonnance appartient au patient
+            if hasattr(user, 'patient_profile'):
+                 if getattr(prescription, 'patient', None) != user:
+                    raise serializers.ValidationError({"prescription": "Cette ordonnance ne vous appartient pas."})
+                    
+            if getattr(prescription, 'status', None) != Prescription.Status.ACTIVE:
+                raise serializers.ValidationError({"prescription": "L'ordonnance n'est pas active."})
+                
+        elif order_type == PharmacyOrder.OrderType.DIRECT:
+            if prescription:
+                raise serializers.ValidationError({"prescription": "Une commande d'achat direct ne doit pas inclure d'ordonnance."})
+
+        return data
 
     def create(self, validated_data):
         return PharmacyOrder.objects.create(
@@ -67,3 +88,22 @@ class PharmacyOrderStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model  = PharmacyOrder
         fields = ['status', 'pharmacist_note', 'estimated_ready']
+
+class PharmacyStockSerializer(serializers.ModelSerializer):
+    # Pour l'affichage frontend (lecture seule)
+    medication_details = MedicationSerializer(source='medication', read_only=True)
+    
+    class Meta:
+        model = PharmacyStock
+        fields = [
+            'id', 'pharmacist', 'medication', 'medication_details', 
+            'quantity', 'selling_price', 'expiry_date', 
+            'last_updated'
+        ]
+        read_only_fields = ['pharmacist']
+        
+    def validate(self, data):
+        """Validation personnalisée : un stock négatif n'est pas permis"""
+        if data.get('quantity', 0) < 0:
+            raise serializers.ValidationError({"quantity": "La quantité ne peut pas être négative."})
+        return data

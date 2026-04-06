@@ -31,13 +31,14 @@ class Doctor(models.Model):
     total_reviews = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=False)
     languages = models.CharField(max_length=200, blank=True, help_text="Ex: Français, Arabe, Anglais")
+    practice_authorization = models.FileField(upload_to='doctor_authorizations/', null=True, blank=True)
 
     def __str__(self):
         return f"Dr. {self.user.get_full_name()}"
 
 class Doctor_professionel_info(models.Model):
     doctor = models.OneToOneField(Doctor, on_delete=models.CASCADE, related_name='professional_info')
-    diploma = models.FileField(upload_to='diplomas/', null=True, blank=True)
+    diploma = models.ForeignKey('DoctorQualification', on_delete=models.SET_NULL, null=True, blank=True, related_name='professional_infos')
     order_registration_number = models.CharField(max_length=100, blank=True)
     cv = models.FileField(upload_to='cvs/', null=True, blank=True)
     
@@ -93,3 +94,14 @@ class DayOff(models.Model):
 
     def __str__(self):
         return f"Dr.{self.doctor.user.last_name} off — {self.date}"
+
+class DoctorQualification(models.Model):
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='qualifications')
+    title = models.CharField(max_length=200)
+    institution = models.CharField(max_length=200)
+    graduation_year = models.PositiveIntegerField()
+    degree_type = models.CharField(max_length=100)
+    scan = models.FileField(upload_to='doctor_qualifications/')
+
+    def __str__(self):
+        return f"{self.title} - {self.doctor.user.last_name}"
