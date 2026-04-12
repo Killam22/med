@@ -21,7 +21,7 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminUser] # Seulement accessible aux superusers
-    
+
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['role', 'verification_status', 'is_active']
     search_fields = ['first_name', 'last_name', 'email']
@@ -51,7 +51,7 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
             message="Vos documents officiels ont été validés par l'administration. Votre compte est maintenant pleinement actif sur MedSmart.",
             notification_type=Notification.NotificationType.SYSTEM
         )
-        
+
         # Trace de l'action dans le journal d'audit
         create_audit_log(f"Compte {user.role} approuvé : {user.email}", AuditLog.Level.SUCCESS, request)
 
@@ -60,6 +60,8 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reject_professional(self, request, pk=None):
         """Bouton 'Rejeter' sur la liste d'attente"""
+        user = self.get_object()
+        reason = request.data.get('reason', 'Dossier incomplet ou non valide.')
         user.verification_status = 'rejected'
         user.save()
 
@@ -81,30 +83,30 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
             notification_type=Notification.NotificationType.SYSTEM
         )
         create_audit_log(f"Inscription rejetée pour {user.email}", AuditLog.Level.WARNING, request)
-        
+
         return Response({"status": "Utilisateur rejeté. Notification envoyée."})
 
     @action(detail=True, methods=['post'])
     def toggle_suspend(self, request, pk=None):
         """Bouton cadenas pour Suspendre / Réactiver un utilisateur"""
         user = self.get_object()
-        
+
         # Empêcher l'admin de se suspendre lui-même
         if user == request.user:
             return Response({"error": "Vous ne pouvez pas suspendre votre propre compte admin."}, status=status.HTTP_400_BAD_REQUEST)
 
-        user.is_active = not user.is_active 
+        user.is_active = not user.is_active
         user.save()
 
         action_text = "réactivé" if user.is_active else "suspendu"
         log_level = AuditLog.Level.SUCCESS if user.is_active else AuditLog.Level.ERROR
-        
+
         create_audit_log(f"Utilisateur {user.email} {action_text}", log_level, request)
-        
+
         if not user.is_active:
              Notification.objects.create(
-                user=user, 
-                title="Compte suspendu", 
+                user=user,
+                title="Compte suspendu",
                 message="Votre compte a été suspendu par l'administration. Veuillez nous contacter.",
                 notification_type=Notification.NotificationType.SYSTEM
             )
@@ -116,6 +118,6 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminUser]
-    
+
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['level']

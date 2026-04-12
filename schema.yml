@@ -1,0 +1,6578 @@
+openapi: 3.0.3
+info:
+  title: MedSmart API
+  version: 1.0.0
+  description: Documentation complète de l'API pour la plateforme médicale MedSmart
+    (PFE).
+paths:
+  /api/admin/audit-logs/:
+    get:
+      operationId: admin_audit_logs_list
+      description: Endpoint pour l'écran 'Journal d'Audit'
+      parameters:
+      - in: query
+        name: level
+        schema:
+          type: string
+          enum:
+          - error
+          - info
+          - success
+          - warning
+        description: |-
+          * `success` - Succès
+          * `warning` - Alerte
+          * `error` - Erreur
+          * `info` - Info
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/admin/audit-logs/{id}/:
+    get:
+      operationId: admin_audit_logs_retrieve
+      description: Endpoint pour l'écran 'Journal d'Audit'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this audit log.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/admin/users/:
+    get:
+      operationId: admin_users_list
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - caretaker
+          - doctor
+          - patient
+          - pharmacist
+        description: |-
+          * `patient` - Patient
+          * `doctor` - Doctor
+          * `pharmacist` - Pharmacist
+          * `caretaker` - Caretaker
+          * `admin` - Admin
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: verification_status
+        schema:
+          type: string
+          enum:
+          - pending
+          - rejected
+          - unverified
+          - verified
+        description: |-
+          * `unverified` - Non vérifié
+          * `pending` - En attente
+          * `verified` - Vérifié
+          * `rejected` - Rejeté
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminUserList'
+          description: ''
+    post:
+      operationId: admin_users_create
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/admin/users/{id}/:
+    get:
+      operationId: admin_users_retrieve
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+    put:
+      operationId: admin_users_update
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+    patch:
+      operationId: admin_users_partial_update
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminUserRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+    delete:
+      operationId: admin_users_destroy
+      description: Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/admin/users/{id}/reject_professional/:
+    post:
+      operationId: admin_users_reject_professional_create
+      description: Bouton 'Rejeter' sur la liste d'attente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/admin/users/{id}/toggle_suspend/:
+    post:
+      operationId: admin_users_toggle_suspend_create
+      description: Bouton cadenas pour Suspendre / Réactiver un utilisateur
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/admin/users/{id}/verify_professional/:
+    post:
+      operationId: admin_users_verify_professional_create
+      description: Bouton 'Approuver' sur la liste d'attente
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Utilisateur.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminUserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/appointments/:
+    get:
+      operationId: appointments_list
+      description: |-
+        GET  /api/appointments/ — patient's appointment list
+        POST /api/appointments/ — book a new appointment
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - appointments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppointmentList'
+          description: ''
+    post:
+      operationId: appointments_create
+      description: |-
+        GET  /api/appointments/ — patient's appointment list
+        POST /api/appointments/ — book a new appointment
+      tags:
+      - appointments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookAppointmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BookAppointmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookAppointmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookAppointment'
+          description: ''
+  /api/appointments/{id}/:
+    get:
+      operationId: appointments_retrieve
+      description: GET /api/appointments/{id}/ — appointment detail (patient).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - appointments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/appointments/{id}/cancel/:
+    post:
+      operationId: appointments_cancel_create
+      description: POST /api/appointments/{id}/cancel/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - appointments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/appointments/{id}/reschedule/:
+    post:
+      operationId: appointments_reschedule_create
+      description: POST /api/appointments/{id}/reschedule/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - appointments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/appointments/{id}/review/:
+    post:
+      operationId: appointments_review_create
+      description: POST /api/appointments/{id}/review/ — patient evaluates a completed
+        appointment.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - appointments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: auth_me_update
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_me_partial_update
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/register/doctor/:
+    post:
+      operationId: auth_register_doctor_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDoctorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterDoctorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterDoctorRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDoctor'
+          description: ''
+  /api/auth/register/patient/:
+    post:
+      operationId: auth_register_patient_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPatientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterPatientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterPatientRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterPatient'
+          description: ''
+  /api/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/caretaker/requests/:
+    get:
+      operationId: caretaker_requests_list
+      description: API pour gérer les offres d'emploi et les contrats
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - caretaker
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCareRequestList'
+          description: ''
+    post:
+      operationId: caretaker_requests_create
+      description: API pour gérer les offres d'emploi et les contrats
+      tags:
+      - caretaker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+  /api/caretaker/requests/{id}/:
+    get:
+      operationId: caretaker_requests_retrieve
+      description: API pour gérer les offres d'emploi et les contrats
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+    put:
+      operationId: caretaker_requests_update
+      description: API pour gérer les offres d'emploi et les contrats
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+    patch:
+      operationId: caretaker_requests_partial_update
+      description: API pour gérer les offres d'emploi et les contrats
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCareRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCareRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCareRequestRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+    delete:
+      operationId: caretaker_requests_destroy
+      description: API pour gérer les offres d'emploi et les contrats
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/caretaker/requests/{id}/respond_to_offer/:
+    post:
+      operationId: caretaker_requests_respond_to_offer_create
+      description: 'Action exclusive au garde-malade : Accepter ou Refuser'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+  /api/caretaker/requests/{id}/send_message/:
+    post:
+      operationId: caretaker_requests_send_message_create
+      description: Envoyer un message de chat dans le cadre d'une demande
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - caretaker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CareRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareRequest'
+          description: ''
+  /api/caretaker/search/:
+    get:
+      operationId: caretaker_search_list
+      description: 'API pour les patients : Rechercher et filtrer les gardes-malades'
+      parameters:
+      - in: query
+        name: availability_area
+        schema:
+          type: string
+      - in: query
+        name: experience_years
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - caretaker
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCaretakerProfileList'
+          description: ''
+  /api/caretaker/search/{id}/:
+    get:
+      operationId: caretaker_search_retrieve
+      description: 'API pour les patients : Rechercher et filtrer les gardes-malades'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this caretaker.
+        required: true
+      tags:
+      - caretaker
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaretakerProfile'
+          description: ''
+  /api/consultations/:
+    get:
+      operationId: consultations_list
+      description: Gestion des consultations.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - consultations
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConsultationList'
+          description: ''
+    post:
+      operationId: consultations_create
+      description: Gestion des consultations.
+      tags:
+      - consultations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+          description: ''
+  /api/consultations/{id}/:
+    get:
+      operationId: consultations_retrieve
+      description: Gestion des consultations.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this consultation.
+        required: true
+      tags:
+      - consultations
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+          description: ''
+    put:
+      operationId: consultations_update
+      description: Gestion des consultations.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this consultation.
+        required: true
+      tags:
+      - consultations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+          description: ''
+    patch:
+      operationId: consultations_partial_update
+      description: Gestion des consultations.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this consultation.
+        required: true
+      tags:
+      - consultations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConsultationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConsultationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConsultationRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+          description: ''
+    delete:
+      operationId: consultations_destroy
+      description: Gestion des consultations.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this consultation.
+        required: true
+      tags:
+      - consultations
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/dashboard/admin/:
+    get:
+      operationId: dashboard_admin_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/caretaker/:
+    get:
+      operationId: dashboard_caretaker_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/doctor/:
+    get:
+      operationId: dashboard_doctor_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/patient/:
+    get:
+      operationId: dashboard_patient_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/pharmacist/:
+    get:
+      operationId: dashboard_pharmacist_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/doctor/appointments/:
+    get:
+      operationId: doctor_appointments_list
+      description: GET /api/doctor/appointments/ — doctor sees all their appointments.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppointmentDoctorList'
+          description: ''
+  /api/doctor/appointments/{id}/:
+    get:
+      operationId: doctor_appointments_retrieve
+      description: GET /api/doctor/appointments/{id}/ — single appointment detail.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentDoctor'
+          description: ''
+  /api/doctor/appointments/{id}/complete/:
+    post:
+      operationId: doctor_appointments_complete_create
+      description: POST /api/doctor/appointments/{id}/complete/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/doctor/appointments/{id}/confirm/:
+    post:
+      operationId: doctor_appointments_confirm_create
+      description: POST /api/doctor/appointments/{id}/confirm/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/doctor/appointments/{id}/refuse/:
+    post:
+      operationId: doctor_appointments_refuse_create
+      description: POST /api/doctor/appointments/{id}/refuse/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/doctor/appointments/pending/:
+    get:
+      operationId: doctor_appointments_pending_list
+      description: GET /api/doctor/appointments/pending/ — doctor's pending appointment
+        requests.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppointmentDoctorList'
+          description: ''
+  /api/doctor/schedule/:
+    get:
+      operationId: doctor_schedule_list
+      description: 'GET /api/doctor/schedule/ — doctor''s appointments for a given
+        day (default: today).'
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctor
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppointmentDoctorList'
+          description: ''
+  /api/doctors/{doctor_id}/availability/:
+    get:
+      operationId: doctors_availability_retrieve
+      description: |-
+        GET /api/doctors/{doctor_id}/availability/?date=2025-06-16
+        GET /api/doctors/{doctor_id}/availability/?from=2025-06-16&to=2025-06-23
+        No auth required — public endpoint for patients browsing.
+      parameters:
+      - in: path
+        name: doctor_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/doctors/{id}/:
+    get:
+      operationId: doctors_retrieve
+      description: GET /api/doctors/{id}/ — full doctor profile.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetail'
+          description: ''
+  /api/doctors/{id}/reviews/:
+    get:
+      operationId: doctors_reviews_list
+      description: GET /api/doctors/{id}/reviews/ — public read-only reviews for a
+        doctor.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviewList'
+          description: ''
+  /api/doctors/days-off/:
+    get:
+      operationId: doctors_days_off_list
+      description: |-
+        Gestion des congés / jours de fermeture du médecin connecté.
+
+        GET    /api/doctor/days-off/          → liste de ses congés
+        POST   /api/doctor/days-off/          → déclarer un congé (date unique par médecin)
+        DELETE /api/doctor/days-off/{id}/     → annuler un congé
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDayOffList'
+          description: ''
+    post:
+      operationId: doctors_days_off_create
+      description: |-
+        Gestion des congés / jours de fermeture du médecin connecté.
+
+        GET    /api/doctor/days-off/          → liste de ses congés
+        POST   /api/doctor/days-off/          → déclarer un congé (date unique par médecin)
+        DELETE /api/doctor/days-off/{id}/     → annuler un congé
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DayOffRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DayOffRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DayOffRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayOff'
+          description: ''
+  /api/doctors/days-off/{id}/:
+    get:
+      operationId: doctors_days_off_retrieve
+      description: |-
+        Gestion des congés / jours de fermeture du médecin connecté.
+
+        GET    /api/doctor/days-off/          → liste de ses congés
+        POST   /api/doctor/days-off/          → déclarer un congé (date unique par médecin)
+        DELETE /api/doctor/days-off/{id}/     → annuler un congé
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DayOff'
+          description: ''
+    delete:
+      operationId: doctors_days_off_destroy
+      description: |-
+        Gestion des congés / jours de fermeture du médecin connecté.
+
+        GET    /api/doctor/days-off/          → liste de ses congés
+        POST   /api/doctor/days-off/          → déclarer un congé (date unique par médecin)
+        DELETE /api/doctor/days-off/{id}/     → annuler un congé
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/doctors/list/:
+    get:
+      operationId: doctors_list_list
+      description: GET /api/doctors/ — search doctors with filters.
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+        description: Date disponible
+      - in: query
+        name: gender
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: rating_min
+        schema:
+          type: number
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Recherche libre
+      - in: query
+        name: specialty
+        schema:
+          type: string
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDoctorListList'
+          description: ''
+  /api/doctors/my-schedule/:
+    get:
+      operationId: doctors_my_schedule_list
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWeeklyScheduleList'
+          description: ''
+    post:
+      operationId: doctors_my_schedule_create
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+          description: ''
+  /api/doctors/my-schedule/{id}/:
+    get:
+      operationId: doctors_my_schedule_retrieve
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+          description: ''
+    put:
+      operationId: doctors_my_schedule_update
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WeeklyScheduleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+          description: ''
+    patch:
+      operationId: doctors_my_schedule_partial_update
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWeeklyScheduleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWeeklyScheduleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWeeklyScheduleRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+          description: ''
+    delete:
+      operationId: doctors_my_schedule_destroy
+      description: |-
+        CRUD complet sur le planning hebdomadaire du médecin connecté.
+
+        GET    /api/doctor/my-schedule/            → voir tous ses jours de travail
+        POST   /api/doctor/my-schedule/            → ajouter un jour (day_of_week unique par médecin)
+        GET    /api/doctor/my-schedule/{id}/       → détail d'un jour
+        PUT    /api/doctor/my-schedule/{id}/       → modifier les heures d'un jour
+        PATCH  /api/doctor/my-schedule/{id}/       → modifier partiellement (ex: juste is_active)
+        DELETE /api/doctor/my-schedule/{id}/       → supprimer un jour de son planning
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/doctors/profile/:
+    get:
+      operationId: doctors_profile_retrieve
+      description: GET / PUT /api/doctors/profile/ — own doctor profile.
+      tags:
+      - doctors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetail'
+          description: ''
+    put:
+      operationId: doctors_profile_update
+      description: GET / PUT /api/doctors/profile/ — own doctor profile.
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DoctorDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DoctorDetailRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetail'
+          description: ''
+    patch:
+      operationId: doctors_profile_partial_update
+      description: GET / PUT /api/doctors/profile/ — own doctor profile.
+      tags:
+      - doctors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDoctorDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDoctorDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDoctorDetailRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetail'
+          description: ''
+  /api/medications/registry/:
+    get:
+      operationId: medications_registry_list
+      description: API pour consulter et gérer le registre global des médicaments.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - analgesic
+          - anti_inflam
+          - antibiotic
+          - cardio
+          - diabetes
+          - gastro
+          - neuro
+          - other
+        description: |-
+          * `cardio` - Cardiologie
+          * `diabetes` - Diabétologie
+          * `antibiotic` - Antibiotique
+          * `analgesic` - Analgésique
+          * `anti_inflam` - Anti-inflammatoire
+          * `gastro` - Gastro-entérologie
+          * `neuro` - Neurologie
+          * `other` - Autre
+      - in: query
+        name: cnas_covered
+        schema:
+          type: boolean
+      - in: query
+        name: is_shifa_compatible
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: requires_prescription
+        schema:
+          type: boolean
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - medications
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMedicationList'
+          description: ''
+    post:
+      operationId: medications_registry_create
+      description: API pour consulter et gérer le registre global des médicaments.
+      tags:
+      - medications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+          description: ''
+  /api/medications/registry/{id}/:
+    get:
+      operationId: medications_registry_retrieve
+      description: API pour consulter et gérer le registre global des médicaments.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Médicament (Référence).
+        required: true
+      tags:
+      - medications
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+          description: ''
+    put:
+      operationId: medications_registry_update
+      description: API pour consulter et gérer le registre global des médicaments.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Médicament (Référence).
+        required: true
+      tags:
+      - medications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+          description: ''
+    patch:
+      operationId: medications_registry_partial_update
+      description: API pour consulter et gérer le registre global des médicaments.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Médicament (Référence).
+        required: true
+      tags:
+      - medications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicationRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+          description: ''
+    delete:
+      operationId: medications_registry_destroy
+      description: API pour consulter et gérer le registre global des médicaments.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Médicament (Référence).
+        required: true
+      tags:
+      - medications
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/:
+    get:
+      operationId: notifications_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotificationList'
+          description: ''
+  /api/notifications/{id}/:
+    get:
+      operationId: notifications_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/{id}/mark_as_read/:
+    post:
+      operationId: notifications_mark_as_read_create
+      description: Marque une notification spécifique comme lue
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/notifications/mark_all_as_read/:
+    post:
+      operationId: notifications_mark_all_as_read_create
+      description: Le fameux bouton 'Tout marquer comme lu'
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/patients/antecedents/:
+    get:
+      operationId: patients_antecedents_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAntecedentList'
+          description: ''
+    post:
+      operationId: patients_antecedents_create
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AntecedentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AntecedentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AntecedentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Antecedent'
+          description: ''
+  /api/patients/lab-results/:
+    get:
+      operationId: patients_lab_results_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLabResultList'
+          description: ''
+    post:
+      operationId: patients_lab_results_create
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabResultRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LabResultRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LabResultRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabResult'
+          description: ''
+  /api/patients/medical-profile/:
+    get:
+      operationId: patients_medical_profile_retrieve
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalProfile'
+          description: ''
+    put:
+      operationId: patients_medical_profile_update
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicalProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicalProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicalProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalProfile'
+          description: ''
+    patch:
+      operationId: patients_medical_profile_partial_update
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicalProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicalProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicalProfileRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalProfile'
+          description: ''
+  /api/patients/my-patients/:
+    get:
+      operationId: patients_my_patients_list
+      description: GET /api/patients/my-patients/ — Liste des patients ayant un RDV
+        avec le médecin.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPatientList'
+          description: ''
+  /api/patients/profile/:
+    get:
+      operationId: patients_profile_retrieve
+      description: GET / PUT /api/patients/profile/ — own patient profile.
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    put:
+      operationId: patients_profile_update
+      description: GET / PUT /api/patients/profile/ — own patient profile.
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+    patch:
+      operationId: patients_profile_partial_update
+      description: GET / PUT /api/patients/profile/ — own patient profile.
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPatientRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+          description: ''
+  /api/patients/symptom-analysis/:
+    get:
+      operationId: patients_symptom_analysis_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSymptomAnalysisList'
+          description: ''
+    post:
+      operationId: patients_symptom_analysis_create
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SymptomAnalysisRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SymptomAnalysisRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SymptomAnalysisRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SymptomAnalysis'
+          description: ''
+  /api/patients/treatments/:
+    get:
+      operationId: patients_treatments_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - patients
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTreatmentList'
+          description: ''
+    post:
+      operationId: patients_treatments_create
+      tags:
+      - patients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TreatmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TreatmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TreatmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Treatment'
+          description: ''
+  /api/pharmacy/branches/:
+    get:
+      operationId: pharmacy_branches_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPharmacyBranchList'
+          description: ''
+  /api/pharmacy/list/:
+    get:
+      operationId: pharmacy_list_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPharmacistList'
+          description: ''
+  /api/pharmacy/orders/:
+    get:
+      operationId: pharmacy_orders_list
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPharmacyOrderList'
+          description: ''
+    post:
+      operationId: pharmacy_orders_create
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderCreateRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrderCreate'
+          description: ''
+  /api/pharmacy/orders/{id}/:
+    get:
+      operationId: pharmacy_orders_retrieve
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this pharmacy order.
+        required: true
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrder'
+          description: ''
+    put:
+      operationId: pharmacy_orders_update
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this pharmacy order.
+        required: true
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PharmacyOrderRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrder'
+          description: ''
+    patch:
+      operationId: pharmacy_orders_partial_update
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this pharmacy order.
+        required: true
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrder'
+          description: ''
+    delete:
+      operationId: pharmacy_orders_destroy
+      description: |-
+        Patient:
+          POST   /api/pharmacy-orders/                → envoyer ordonnance à pharmacie
+          GET    /api/pharmacy-orders/                → mes commandes
+          GET    /api/pharmacy-orders/<id>/           → détail
+          DELETE /api/pharmacy-orders/<id>/           → annuler
+
+        Pharmacien:
+          GET    /api/pharmacy-orders/incoming/       → commandes reçues
+          PATCH  /api/pharmacy-orders/<id>/status/    → mettre à jour le statut
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this pharmacy order.
+        required: true
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/pharmacy/orders/{id}/status/:
+    patch:
+      operationId: pharmacy_orders_status_partial_update
+      description: |-
+        PATCH /api/pharmacy-orders/<id>/status/
+        Pharmacien : mettre à jour le statut d'une commande.
+        Body: { "status": "preparing", "pharmacist_note": "...", "estimated_ready": "..." }
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this pharmacy order.
+        required: true
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderStatusRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderStatusRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyOrderStatusRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrderStatus'
+          description: ''
+  /api/pharmacy/orders/incoming/:
+    get:
+      operationId: pharmacy_orders_incoming_retrieve
+      description: |-
+        GET /api/pharmacy-orders/incoming/
+        Pharmacien : commandes en attente à traiter.
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyOrder'
+          description: ''
+  /api/pharmacy/stock/:
+    get:
+      operationId: pharmacy_stock_list
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPharmacyStockList'
+          description: ''
+    post:
+      operationId: pharmacy_stock_create
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyStock'
+          description: ''
+  /api/pharmacy/stock/{id}/:
+    get:
+      operationId: pharmacy_stock_retrieve
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyStock'
+          description: ''
+    put:
+      operationId: pharmacy_stock_update
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PharmacyStockRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyStock'
+          description: ''
+    patch:
+      operationId: pharmacy_stock_partial_update
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pharmacy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyStockRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyStockRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPharmacyStockRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyStock'
+          description: ''
+    delete:
+      operationId: pharmacy_stock_destroy
+      description: API pour les pharmaciens pour gérer leur inventaire personnel
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/pharmacy/stock/search-nearby/:
+    get:
+      operationId: pharmacy_stock_search_nearby_retrieve
+      description: Recherche de médicaments en stock selon la position du patient
+      tags:
+      - pharmacy
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyStock'
+          description: ''
+  /api/prescriptions/:
+    get:
+      operationId: prescriptions_list
+      description: |-
+        CRUD complet sur les ordonnances.
+        GET    /api/prescriptions/        → liste (filtrée par rôle)
+        POST   /api/prescriptions/        → créer (docteur seulement)
+        GET    /api/prescriptions/<id>/   → détail
+        DELETE /api/prescriptions/<id>/   → annuler
+        POST   /api/prescriptions/<id>/qr/      → générer/récupérer le QR
+        POST   /api/prescriptions/<id>/pdf/     → télécharger le PDF
+        POST   /api/prescriptions/<id>/cnas/    → vérifier couverture
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPrescriptionList'
+          description: ''
+    post:
+      operationId: prescriptions_create
+      description: |-
+        CRUD complet sur les ordonnances.
+        GET    /api/prescriptions/        → liste (filtrée par rôle)
+        POST   /api/prescriptions/        → créer (docteur seulement)
+        GET    /api/prescriptions/<id>/   → détail
+        DELETE /api/prescriptions/<id>/   → annuler
+        POST   /api/prescriptions/<id>/qr/      → générer/récupérer le QR
+        POST   /api/prescriptions/<id>/pdf/     → télécharger le PDF
+        POST   /api/prescriptions/<id>/cnas/    → vérifier couverture
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrescriptionCreate'
+          description: ''
+  /api/prescriptions/{id}/:
+    get:
+      operationId: prescriptions_retrieve
+      description: |-
+        CRUD complet sur les ordonnances.
+        GET    /api/prescriptions/        → liste (filtrée par rôle)
+        POST   /api/prescriptions/        → créer (docteur seulement)
+        GET    /api/prescriptions/<id>/   → détail
+        DELETE /api/prescriptions/<id>/   → annuler
+        POST   /api/prescriptions/<id>/qr/      → générer/récupérer le QR
+        POST   /api/prescriptions/<id>/pdf/     → télécharger le PDF
+        POST   /api/prescriptions/<id>/cnas/    → vérifier couverture
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+    put:
+      operationId: prescriptions_update
+      description: |-
+        CRUD complet sur les ordonnances.
+        GET    /api/prescriptions/        → liste (filtrée par rôle)
+        POST   /api/prescriptions/        → créer (docteur seulement)
+        GET    /api/prescriptions/<id>/   → détail
+        DELETE /api/prescriptions/<id>/   → annuler
+        POST   /api/prescriptions/<id>/qr/      → générer/récupérer le QR
+        POST   /api/prescriptions/<id>/pdf/     → télécharger le PDF
+        POST   /api/prescriptions/<id>/cnas/    → vérifier couverture
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+    patch:
+      operationId: prescriptions_partial_update
+      description: |-
+        CRUD complet sur les ordonnances.
+        GET    /api/prescriptions/        → liste (filtrée par rôle)
+        POST   /api/prescriptions/        → créer (docteur seulement)
+        GET    /api/prescriptions/<id>/   → détail
+        DELETE /api/prescriptions/<id>/   → annuler
+        POST   /api/prescriptions/<id>/qr/      → générer/récupérer le QR
+        POST   /api/prescriptions/<id>/pdf/     → télécharger le PDF
+        POST   /api/prescriptions/<id>/cnas/    → vérifier couverture
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPrescriptionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPrescriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPrescriptionRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+    delete:
+      operationId: prescriptions_destroy
+      description: Annuler (pas supprimer) une ordonnance.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/prescriptions/{id}/cnas/:
+    post:
+      operationId: prescriptions_cnas_create
+      description: Calcule la couverture CNAS pour cette ordonnance.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/prescriptions/{id}/pdf/:
+    get:
+      operationId: prescriptions_pdf_retrieve
+      description: Télécharge l'ordonnance en PDF.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/prescriptions/{id}/pdf-download/:
+    get:
+      operationId: prescriptions_pdf_download_retrieve
+      description: |-
+        GET /api/prescriptions/{uuid}/pdf-download/
+        Retourne directement le PDF — téléchargeable dans le navigateur.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/prescriptions/{id}/qr/:
+    get:
+      operationId: prescriptions_qr_retrieve
+      description: Retourne le QR en JSON base64. Pour l'image PNG directe, voir /api/prescriptions/{id}/qr-image/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this prescription.
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/prescriptions/{id}/qr-image/:
+    get:
+      operationId: prescriptions_qr_image_retrieve
+      description: |-
+        GET /api/prescriptions/{uuid}/qr-image/
+        Retourne directement l'image QR en PNG — affichable dans un <img> ou navigateur.
+        Bypasse le content-negotiation DRF qui forcerait un rendu JSON.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/prescriptions/caregiver-patients/:
+    get:
+      operationId: prescriptions_caregiver_patients_retrieve
+      description: |-
+        GET /api/prescriptions/caregiver-patients/
+        Garde-malade : liste des ordonnances de ses patients assignés.
+      tags:
+      - prescriptions
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+          description: ''
+  /api/prescriptions/scan/:
+    post:
+      operationId: prescriptions_scan_create
+      description: |-
+        POST /api/prescriptions/scan/
+        Body: { "token": "..." }
+        Utilisé par le pharmacien pour scanner une ordonnance.
+      tags:
+      - prescriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QRScanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QRScanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QRScanRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRScan'
+          description: ''
+components:
+  schemas:
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_active:
+          type: boolean
+          title: Actif
+          description: Précise si l’utilisateur doit être considéré comme actif. Décochez
+            ceci plutôt que de supprimer le compte.
+        verification_status:
+          $ref: '#/components/schemas/VerificationStatusEnum'
+        date_joined:
+          type: string
+          format: date-time
+          title: Date d’inscription
+        submitted_documents:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+      - submitted_documents
+    AdminUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_active:
+          type: boolean
+          title: Actif
+          description: Précise si l’utilisateur doit être considéré comme actif. Décochez
+            ceci plutôt que de supprimer le compte.
+        verification_status:
+          $ref: '#/components/schemas/VerificationStatusEnum'
+        date_joined:
+          type: string
+          format: date-time
+          title: Date d’inscription
+      required:
+      - email
+    Antecedent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        description:
+          type: string
+        date_diagnosis:
+          type: string
+          format: date
+          nullable: true
+        patient:
+          type: integer
+      required:
+      - id
+      - name
+      - patient
+      - type
+    AntecedentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        description:
+          type: string
+        date_diagnosis:
+          type: string
+          format: date
+          nullable: true
+        patient:
+          type: integer
+      required:
+      - name
+      - patient
+      - type
+    Appointment:
+      type: object
+      description: |-
+        Utilisé en GET /api/appointments/ et GET /api/appointments/{id}/
+        Visible par le patient — pas de refusal_reason.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        doctor_name:
+          type: string
+          readOnly: true
+        doctor_specialty:
+          type: string
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        start_time:
+          type: string
+          format: time
+          readOnly: true
+        end_time:
+          type: string
+          format: time
+          readOnly: true
+        duration_minutes:
+          type: integer
+          readOnly: true
+        motif:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusE5cEnum'
+          readOnly: true
+        status_display:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        has_review:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - date
+      - doctor_name
+      - doctor_specialty
+      - duration_minutes
+      - end_time
+      - has_review
+      - id
+      - motif
+      - notes
+      - patient_name
+      - start_time
+      - status
+      - status_display
+      - updated_at
+    AppointmentDoctor:
+      type: object
+      description: |-
+        Utilisé dans toutes les vues doctor/appointments/
+        Ajoute refusal_reason et les infos patient complètes.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        patient_email:
+          type: string
+          format: email
+          readOnly: true
+        patient_phone:
+          type: string
+          readOnly: true
+        date:
+          type: string
+          format: date
+          readOnly: true
+        start_time:
+          type: string
+          format: time
+          readOnly: true
+        end_time:
+          type: string
+          format: time
+          readOnly: true
+        duration_minutes:
+          type: integer
+          readOnly: true
+        motif:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusE5cEnum'
+          readOnly: true
+        status_display:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        refusal_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - date
+      - duration_minutes
+      - end_time
+      - id
+      - motif
+      - notes
+      - patient_email
+      - patient_name
+      - patient_phone
+      - refusal_reason
+      - start_time
+      - status
+      - status_display
+      - updated_at
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        message:
+          type: string
+          maxLength: 255
+        actor_name:
+          type: string
+          readOnly: true
+          default: Système
+        ip_address:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - actor_name
+      - created_at
+      - id
+      - message
+    BlankEnum:
+      enum:
+      - ''
+    BookAppointment:
+      type: object
+      description: |-
+        Utilisé en POST /api/appointments/ et POST /api/appointments/{id}/reschedule/
+        Le client envoie : doctor_id, date, start_time, end_time, motif
+      properties:
+        doctor_id:
+          type: integer
+        date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        motif:
+          type: string
+          maxLength: 300
+      required:
+      - date
+      - doctor_id
+      - end_time
+      - motif
+      - start_time
+    BookAppointmentRequest:
+      type: object
+      description: |-
+        Utilisé en POST /api/appointments/ et POST /api/appointments/{id}/reschedule/
+        Le client envoie : doctor_id, date, start_time, end_time, motif
+      properties:
+        doctor_id:
+          type: integer
+        date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        motif:
+          type: string
+          minLength: 1
+          maxLength: 300
+      required:
+      - date
+      - doctor_id
+      - end_time
+      - motif
+      - start_time
+    CareMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        sender:
+          type: integer
+        sender_name:
+          type: string
+          readOnly: true
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - created_at
+      - id
+      - sender
+      - sender_name
+    CareMessageRequest:
+      type: object
+      properties:
+        sender:
+          type: integer
+        content:
+          type: string
+          minLength: 1
+      required:
+      - content
+      - sender
+    CareRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        caretaker:
+          type: integer
+        caretaker_name:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CareStatusEnum'
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        patient_message:
+          type: string
+          description: Détails des tâches et besoins médicaux
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareMessage'
+          readOnly: true
+        patient_medical_dossier:
+          type: string
+          readOnly: true
+      required:
+      - caretaker
+      - caretaker_name
+      - created_at
+      - id
+      - messages
+      - patient
+      - patient_medical_dossier
+      - patient_message
+      - patient_name
+      - start_date
+      - status
+    CareRequestRequest:
+      type: object
+      properties:
+        caretaker:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        patient_message:
+          type: string
+          minLength: 1
+          description: Détails des tâches et besoins médicaux
+      required:
+      - caretaker
+      - patient_message
+      - start_date
+    CareStatusEnum:
+      enum:
+      - pending
+      - accepted
+      - rejected
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `accepted` - Acceptée
+        * `rejected` - Refusée
+        * `completed` - Terminée
+        * `cancelled` - Annulée
+    CaretakerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        certification:
+          type: string
+          maxLength: 200
+        experience_years:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        bio:
+          type: string
+        availability_area:
+          type: string
+          maxLength: 200
+        is_verified:
+          type: boolean
+        is_available:
+          type: boolean
+          description: Visible dans les recherches des patients
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaretakerService'
+          readOnly: true
+      required:
+      - full_name
+      - id
+      - services
+    CaretakerService:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        service_name:
+          type: string
+          maxLength: 200
+        price_per_hour:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        description:
+          type: string
+        caretaker:
+          type: integer
+      required:
+      - caretaker
+      - id
+      - service_name
+    CategoryEnum:
+      enum:
+      - cardio
+      - diabetes
+      - antibiotic
+      - analgesic
+      - anti_inflam
+      - gastro
+      - neuro
+      - other
+      type: string
+      description: |-
+        * `cardio` - Cardiologie
+        * `diabetes` - Diabétologie
+        * `antibiotic` - Antibiotique
+        * `analgesic` - Analgésique
+        * `anti_inflam` - Anti-inflammatoire
+        * `gastro` - Gastro-entérologie
+        * `neuro` - Neurologie
+        * `other` - Autre
+    Consultation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        doctor_name:
+          type: string
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        consultation_type:
+          $ref: '#/components/schemas/ConsultationTypeEnum'
+        status:
+          $ref: '#/components/schemas/ConsultationStatusEnum'
+        chief_complaint:
+          type: string
+        history:
+          type: string
+        examination:
+          type: string
+        diagnosis:
+          type: string
+        treatment_plan:
+          type: string
+        doctor_notes:
+          type: string
+        follow_up_date:
+          type: string
+          format: date
+          nullable: true
+        follow_up_notes:
+          type: string
+        vitals:
+          type: string
+        consulted_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        doctor:
+          type: integer
+        patient:
+          type: integer
+        appointment:
+          type: integer
+          nullable: true
+      required:
+      - chief_complaint
+      - consulted_at
+      - created_at
+      - doctor
+      - doctor_name
+      - id
+      - patient
+      - patient_name
+      - updated_at
+    ConsultationRequest:
+      type: object
+      properties:
+        consultation_type:
+          $ref: '#/components/schemas/ConsultationTypeEnum'
+        status:
+          $ref: '#/components/schemas/ConsultationStatusEnum'
+        chief_complaint:
+          type: string
+          minLength: 1
+        history:
+          type: string
+        examination:
+          type: string
+        diagnosis:
+          type: string
+        treatment_plan:
+          type: string
+        doctor_notes:
+          type: string
+        follow_up_date:
+          type: string
+          format: date
+          nullable: true
+        follow_up_notes:
+          type: string
+        vitals:
+          type: string
+        consulted_at:
+          type: string
+          format: date-time
+        doctor:
+          type: integer
+        patient:
+          type: integer
+        appointment:
+          type: integer
+          nullable: true
+      required:
+      - chief_complaint
+      - consulted_at
+      - doctor
+      - patient
+    ConsultationStatusEnum:
+      enum:
+      - scheduled
+      - in_progress
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `scheduled` - Planifiée
+        * `in_progress` - En cours
+        * `completed` - Terminée
+        * `cancelled` - Annulée
+    ConsultationTypeEnum:
+      enum:
+      - in_person
+      - teleconsultation
+      - home_visit
+      type: string
+      description: |-
+        * `in_person` - En cabinet
+        * `teleconsultation` - Téléconsultation
+        * `home_visit` - Visite à domicile
+    CustomTokenObtainPairRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    DayOfWeekEnum:
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      type: integer
+      description: |-
+        * `0` - Lundi
+        * `1` - Mardi
+        * `2` - Mercredi
+        * `3` - Jeudi
+        * `4` - Vendredi
+        * `5` - Samedi
+        * `6` - Dimanche
+    DayOff:
+      type: object
+      description: |-
+        GET    /api/doctor/days-off/        → liste des congés
+        POST   /api/doctor/days-off/        → ajouter un congé
+        DELETE /api/doctor/days-off/{id}/   → supprimer un congé
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        date:
+          type: string
+          format: date
+        reason:
+          type: string
+          maxLength: 200
+      required:
+      - date
+      - id
+    DayOffRequest:
+      type: object
+      description: |-
+        GET    /api/doctor/days-off/        → liste des congés
+        POST   /api/doctor/days-off/        → ajouter un congé
+        DELETE /api/doctor/days-off/{id}/   → supprimer un congé
+      properties:
+        date:
+          type: string
+          format: date
+        reason:
+          type: string
+          maxLength: 200
+      required:
+      - date
+    DoctorDetail:
+      type: object
+      description: Full doctor profile.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        specialty:
+          $ref: '#/components/schemas/SpecialtyEnum'
+        specialty_display:
+          type: string
+          readOnly: true
+        license_number:
+          type: string
+          maxLength: 50
+        gender:
+          type: string
+        clinic_name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        bio:
+          type: string
+        experience_years:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        consultation_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        photo:
+          type: string
+          format: uri
+          nullable: true
+        rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+        total_reviews:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        languages:
+          type: string
+          description: 'Ex: Français, Arabe, Anglais'
+          maxLength: 200
+        is_verified:
+          type: boolean
+        available_slots:
+          type: string
+          readOnly: true
+      required:
+      - available_slots
+      - email
+      - first_name
+      - id
+      - last_name
+      - license_number
+      - specialty_display
+    DoctorDetailRequest:
+      type: object
+      description: Full doctor profile.
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        specialty:
+          $ref: '#/components/schemas/SpecialtyEnum'
+        license_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        gender:
+          type: string
+        clinic_name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        bio:
+          type: string
+        experience_years:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        consultation_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        photo:
+          type: string
+          format: binary
+          nullable: true
+        rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+        total_reviews:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        languages:
+          type: string
+          description: 'Ex: Français, Arabe, Anglais'
+          maxLength: 200
+        is_verified:
+          type: boolean
+      required:
+      - first_name
+      - last_name
+      - license_number
+    DoctorList:
+      type: object
+      description: Compact doctor info for search results.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        specialty:
+          $ref: '#/components/schemas/SpecialtyEnum'
+        specialty_display:
+          type: string
+          readOnly: true
+        gender:
+          type: string
+          readOnly: true
+        gender_display:
+          type: string
+          readOnly: true
+        clinic_name:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          readOnly: true
+        rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+        total_reviews:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        experience_years:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        consultation_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        photo:
+          type: string
+          format: uri
+          nullable: true
+        available_slots_for_date:
+          type: string
+          readOnly: true
+      required:
+      - available_slots_for_date
+      - city
+      - full_name
+      - gender
+      - gender_display
+      - id
+      - specialty_display
+    FrequencyEnum:
+      enum:
+      - 1x_day
+      - 2x_day
+      - 3x_day
+      - every_8h
+      - as_needed
+      type: string
+      description: |-
+        * `1x_day` - 1 fois/jour
+        * `2x_day` - 2 fois/jour
+        * `3x_day` - 3 fois/jour
+        * `every_8h` - Toutes les 8h
+        * `as_needed` - Au besoin
+    LabResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        test_name:
+          type: string
+          maxLength: 200
+        date:
+          type: string
+          format: date
+        result_value:
+          type: string
+        files:
+          type: string
+          format: uri
+          nullable: true
+        patient:
+          type: integer
+      required:
+      - date
+      - id
+      - patient
+      - result_value
+      - test_name
+    LabResultRequest:
+      type: object
+      properties:
+        test_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        date:
+          type: string
+          format: date
+        result_value:
+          type: string
+          minLength: 1
+        files:
+          type: string
+          format: binary
+          nullable: true
+        patient:
+          type: integer
+      required:
+      - date
+      - patient
+      - result_value
+      - test_name
+    LevelEnum:
+      enum:
+      - success
+      - warning
+      - error
+      - info
+      type: string
+      description: |-
+        * `success` - Succès
+        * `warning` - Alerte
+        * `error` - Erreur
+        * `info` - Info
+    MedicalProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        weight:
+          type: number
+          format: double
+          nullable: true
+        height:
+          type: number
+          format: double
+          nullable: true
+        allergies:
+          type: string
+        chronic_diseases:
+          type: string
+        current_medications:
+          type: string
+        patient:
+          type: integer
+      required:
+      - id
+      - patient
+    MedicalProfileRequest:
+      type: object
+      properties:
+        weight:
+          type: number
+          format: double
+          nullable: true
+        height:
+          type: number
+          format: double
+          nullable: true
+        allergies:
+          type: string
+        chronic_diseases:
+          type: string
+        current_medications:
+          type: string
+        patient:
+          type: integer
+      required:
+      - patient
+    Medication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 250
+        molecule:
+          type: string
+          description: Principe actif
+          maxLength: 250
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        description:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        form:
+          type: string
+          description: 'Ex: Sirop, Comprimé, Pommade'
+          maxLength: 250
+        dosage_forms:
+          description: 'Ex: ["500mg", "1g"]'
+        side_effects:
+          type: string
+        interactions:
+          type: string
+        contraindications:
+          type: string
+        price_dzd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          description: Prix de référence
+        cnas_covered:
+          type: boolean
+        is_shifa_compatible:
+          type: boolean
+        requires_prescription:
+          type: boolean
+        manufacturer:
+          type: string
+          maxLength: 250
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - updated_at
+    MedicationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 250
+        molecule:
+          type: string
+          description: Principe actif
+          maxLength: 250
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        description:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        form:
+          type: string
+          description: 'Ex: Sirop, Comprimé, Pommade'
+          maxLength: 250
+        dosage_forms:
+          description: 'Ex: ["500mg", "1g"]'
+        side_effects:
+          type: string
+        interactions:
+          type: string
+        contraindications:
+          type: string
+        price_dzd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          description: Prix de référence
+        cnas_covered:
+          type: boolean
+        is_shifa_compatible:
+          type: boolean
+        requires_prescription:
+          type: boolean
+        manufacturer:
+          type: string
+          maxLength: 250
+        is_active:
+          type: boolean
+      required:
+      - name
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        notification_type:
+          $ref: '#/components/schemas/NotificationTypeEnum'
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - message
+      - title
+    NotificationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+        notification_type:
+          $ref: '#/components/schemas/NotificationTypeEnum'
+        is_read:
+          type: boolean
+      required:
+      - message
+      - title
+    NotificationTypeEnum:
+      enum:
+      - appointment
+      - pharmacy
+      - caretaker
+      - system
+      type: string
+      description: |-
+        * `appointment` - Rendez-vous
+        * `pharmacy` - Pharmacie
+        * `caretaker` - Garde-malade
+        * `system` - Système
+    OrderTypeEnum:
+      enum:
+      - prescription
+      - direct
+      type: string
+      description: |-
+        * `prescription` - Préparation d'ordonnance
+        * `direct` - Achat direct
+    PaginatedAdminUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+    PaginatedAntecedentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Antecedent'
+    PaginatedAppointmentDoctorList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentDoctor'
+    PaginatedAppointmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Appointment'
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedCareRequestList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareRequest'
+    PaginatedCaretakerProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaretakerProfile'
+    PaginatedConsultationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consultation'
+    PaginatedDayOffList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOff'
+    PaginatedDoctorListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorList'
+    PaginatedLabResultList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabResult'
+    PaginatedMedicationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Medication'
+    PaginatedNotificationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+    PaginatedPatientList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Patient'
+    PaginatedPharmacistList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pharmacist'
+    PaginatedPharmacyBranchList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PharmacyBranch'
+    PaginatedPharmacyOrderList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PharmacyOrder'
+    PaginatedPharmacyStockList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PharmacyStock'
+    PaginatedPrescriptionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prescription'
+    PaginatedReviewList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+    PaginatedSymptomAnalysisList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SymptomAnalysis'
+    PaginatedTreatmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Treatment'
+    PaginatedWeeklyScheduleList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeeklySchedule'
+    PatchedAdminUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_active:
+          type: boolean
+          title: Actif
+          description: Précise si l’utilisateur doit être considéré comme actif. Décochez
+            ceci plutôt que de supprimer le compte.
+        verification_status:
+          $ref: '#/components/schemas/VerificationStatusEnum'
+        date_joined:
+          type: string
+          format: date-time
+          title: Date d’inscription
+    PatchedCareRequestRequest:
+      type: object
+      properties:
+        caretaker:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        patient_message:
+          type: string
+          minLength: 1
+          description: Détails des tâches et besoins médicaux
+    PatchedConsultationRequest:
+      type: object
+      properties:
+        consultation_type:
+          $ref: '#/components/schemas/ConsultationTypeEnum'
+        status:
+          $ref: '#/components/schemas/ConsultationStatusEnum'
+        chief_complaint:
+          type: string
+          minLength: 1
+        history:
+          type: string
+        examination:
+          type: string
+        diagnosis:
+          type: string
+        treatment_plan:
+          type: string
+        doctor_notes:
+          type: string
+        follow_up_date:
+          type: string
+          format: date
+          nullable: true
+        follow_up_notes:
+          type: string
+        vitals:
+          type: string
+        consulted_at:
+          type: string
+          format: date-time
+        doctor:
+          type: integer
+        patient:
+          type: integer
+        appointment:
+          type: integer
+          nullable: true
+    PatchedDoctorDetailRequest:
+      type: object
+      description: Full doctor profile.
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        specialty:
+          $ref: '#/components/schemas/SpecialtyEnum'
+        license_number:
+          type: string
+          minLength: 1
+          maxLength: 50
+        gender:
+          type: string
+        clinic_name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        bio:
+          type: string
+        experience_years:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        consultation_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        photo:
+          type: string
+          format: binary
+          nullable: true
+        rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+        total_reviews:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        languages:
+          type: string
+          description: 'Ex: Français, Arabe, Anglais'
+          maxLength: 200
+        is_verified:
+          type: boolean
+    PatchedMedicalProfileRequest:
+      type: object
+      properties:
+        weight:
+          type: number
+          format: double
+          nullable: true
+        height:
+          type: number
+          format: double
+          nullable: true
+        allergies:
+          type: string
+        chronic_diseases:
+          type: string
+        current_medications:
+          type: string
+        patient:
+          type: integer
+    PatchedMedicationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 250
+        molecule:
+          type: string
+          description: Principe actif
+          maxLength: 250
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        description:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        form:
+          type: string
+          description: 'Ex: Sirop, Comprimé, Pommade'
+          maxLength: 250
+        dosage_forms:
+          description: 'Ex: ["500mg", "1g"]'
+        side_effects:
+          type: string
+        interactions:
+          type: string
+        contraindications:
+          type: string
+        price_dzd:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          description: Prix de référence
+        cnas_covered:
+          type: boolean
+        is_shifa_compatible:
+          type: boolean
+        requires_prescription:
+          type: boolean
+        manufacturer:
+          type: string
+          maxLength: 250
+        is_active:
+          type: boolean
+    PatchedPatientRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        blood_type:
+          type: string
+        medical_history:
+          type: string
+        photo:
+          type: string
+          format: binary
+          nullable: true
+    PatchedPharmacyOrderRequest:
+      type: object
+      properties:
+        prescription:
+          type: string
+          format: uuid
+          nullable: true
+        pharmacist:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status9f9Enum'
+        patient_message:
+          type: string
+        pharmacist_note:
+          type: string
+        estimated_ready:
+          type: string
+          format: date-time
+          nullable: true
+    PatchedPharmacyOrderStatusRequest:
+      type: object
+      description: Pour que le pharmacien mette à jour le statut.
+      properties:
+        status:
+          $ref: '#/components/schemas/Status9f9Enum'
+        pharmacist_note:
+          type: string
+        estimated_ready:
+          type: string
+          format: date-time
+          nullable: true
+    PatchedPharmacyStockRequest:
+      type: object
+      properties:
+        medication:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          description: Prix de vente DZD en pharmacie
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+    PatchedPrescriptionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrescriptionStatusEnum'
+        notes:
+          type: string
+        valid_until:
+          type: string
+          format: date
+    PatchedUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        sex:
+          oneOf:
+          - $ref: '#/components/schemas/SexEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+    PatchedWeeklyScheduleRequest:
+      type: object
+      description: |-
+        GET  /api/doctor/my-schedule/         → liste des jours de travail
+        POST /api/doctor/my-schedule/         → ajouter/remplacer un jour
+        PUT  /api/doctor/my-schedule/{id}/    → modifier les heures d'un jour
+        DELETE /api/doctor/my-schedule/{id}/  → supprimer un jour
+      properties:
+        day_of_week:
+          allOf:
+          - $ref: '#/components/schemas/DayOfWeekEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        slot_duration:
+          allOf:
+          - $ref: '#/components/schemas/SlotDurationEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        is_active:
+          type: boolean
+    Patient:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        age:
+          type: integer
+          readOnly: true
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        blood_type:
+          type: string
+        medical_history:
+          type: string
+        photo:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - age
+      - email
+      - first_name
+      - id
+      - last_name
+    PatientRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        blood_type:
+          type: string
+        medical_history:
+          type: string
+        photo:
+          type: string
+          format: binary
+          nullable: true
+      required:
+      - first_name
+      - last_name
+    Pharmacist:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        license_number:
+          type: string
+          maxLength: 50
+        pharmacy_name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+        city:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 20
+        is_verified:
+          type: boolean
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        pharmacy_license:
+          type: string
+          format: uri
+          nullable: true
+        user:
+          type: integer
+      required:
+      - address
+      - city
+      - id
+      - license_number
+      - pharmacy_name
+      - user
+    PharmacyBranch:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch_name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+        city:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          maxLength: 20
+        is_open_24h:
+          type: boolean
+        pharmacist:
+          type: integer
+      required:
+      - address
+      - branch_name
+      - city
+      - id
+      - pharmacist
+    PharmacyOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        prescription:
+          type: string
+          format: uuid
+          nullable: true
+        prescription_ref:
+          type: string
+          readOnly: true
+        patient:
+          type: integer
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+        pharmacist:
+          type: integer
+          nullable: true
+        pharmacist_name:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/Status9f9Enum'
+        status_display:
+          type: string
+          readOnly: true
+        patient_message:
+          type: string
+        pharmacist_note:
+          type: string
+        estimated_ready:
+          type: string
+          format: date-time
+          nullable: true
+        items:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - items
+      - patient
+      - patient_name
+      - pharmacist_name
+      - prescription_ref
+      - status_display
+      - updated_at
+    PharmacyOrderCreate:
+      type: object
+      properties:
+        prescription:
+          type: string
+          format: uuid
+          nullable: true
+        patient_message:
+          type: string
+        order_type:
+          $ref: '#/components/schemas/OrderTypeEnum'
+        withdrawal_method:
+          $ref: '#/components/schemas/WithdrawalMethodEnum'
+        caretaker:
+          type: integer
+          nullable: true
+          description: Garde-malade assigné si applicable
+    PharmacyOrderCreateRequest:
+      type: object
+      properties:
+        prescription:
+          type: string
+          format: uuid
+          nullable: true
+        patient_message:
+          type: string
+        order_type:
+          $ref: '#/components/schemas/OrderTypeEnum'
+        withdrawal_method:
+          $ref: '#/components/schemas/WithdrawalMethodEnum'
+        caretaker:
+          type: integer
+          nullable: true
+          description: Garde-malade assigné si applicable
+    PharmacyOrderRequest:
+      type: object
+      properties:
+        prescription:
+          type: string
+          format: uuid
+          nullable: true
+        pharmacist:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status9f9Enum'
+        patient_message:
+          type: string
+        pharmacist_note:
+          type: string
+        estimated_ready:
+          type: string
+          format: date-time
+          nullable: true
+    PharmacyOrderStatus:
+      type: object
+      description: Pour que le pharmacien mette à jour le statut.
+      properties:
+        status:
+          $ref: '#/components/schemas/Status9f9Enum'
+        pharmacist_note:
+          type: string
+        estimated_ready:
+          type: string
+          format: date-time
+          nullable: true
+    PharmacyStock:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        pharmacist:
+          type: integer
+          readOnly: true
+        medication:
+          type: string
+          format: uuid
+        medication_details:
+          allOf:
+          - $ref: '#/components/schemas/Medication'
+          readOnly: true
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          description: Prix de vente DZD en pharmacie
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        last_updated:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - last_updated
+      - medication
+      - medication_details
+      - pharmacist
+      - selling_price
+    PharmacyStockRequest:
+      type: object
+      properties:
+        medication:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          description: Prix de vente DZD en pharmacie
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - medication
+      - selling_price
+    Prescription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/PrescriptionStatusEnum'
+        notes:
+          type: string
+        valid_until:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionItem'
+          readOnly: true
+        qr_token:
+          allOf:
+          - $ref: '#/components/schemas/QRToken'
+          readOnly: true
+        doctor_name:
+          type: string
+          readOnly: true
+        patient_name:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - doctor_name
+      - id
+      - items
+      - patient_name
+      - qr_token
+      - updated_at
+      - valid_until
+    PrescriptionCreate:
+      type: object
+      properties:
+        consultation:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        valid_until:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionItem'
+      required:
+      - consultation
+      - items
+      - valid_until
+    PrescriptionCreateRequest:
+      type: object
+      properties:
+        consultation:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        valid_until:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionItemRequest'
+      required:
+      - consultation
+      - items
+      - valid_until
+    PrescriptionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        medication:
+          type: string
+          format: uuid
+          nullable: true
+        drug_name:
+          type: string
+          maxLength: 200
+        molecule:
+          type: string
+          maxLength: 200
+        dosage:
+          type: string
+          maxLength: 100
+        frequency:
+          $ref: '#/components/schemas/FrequencyEnum'
+        duration:
+          type: string
+          maxLength: 100
+        instructions:
+          type: string
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - dosage
+      - drug_name
+      - duration
+      - frequency
+      - id
+    PrescriptionItemRequest:
+      type: object
+      properties:
+        medication:
+          type: string
+          format: uuid
+          nullable: true
+        drug_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        molecule:
+          type: string
+          maxLength: 200
+        dosage:
+          type: string
+          minLength: 1
+          maxLength: 100
+        frequency:
+          $ref: '#/components/schemas/FrequencyEnum'
+        duration:
+          type: string
+          minLength: 1
+          maxLength: 100
+        instructions:
+          type: string
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+      required:
+      - dosage
+      - drug_name
+      - duration
+      - frequency
+    PrescriptionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PrescriptionStatusEnum'
+        notes:
+          type: string
+        valid_until:
+          type: string
+          format: date
+      required:
+      - valid_until
+    PrescriptionStatusEnum:
+      enum:
+      - active
+      - expired
+      - cancelled
+      - pending
+      type: string
+      description: |-
+        * `active` - Active
+        * `expired` - Expired
+        * `cancelled` - Cancelled
+        * `pending` - En attente CNAS
+    QRScan:
+      type: object
+      description: Serializer pour le formulaire de scan QR dans l'interface DRF.
+      properties:
+        token:
+          type: string
+          description: Collez ici le token QR récupéré depuis GET /api/prescriptions/{id}/qr/
+          maxLength: 200
+      required:
+      - token
+    QRScanRequest:
+      type: object
+      description: Serializer pour le formulaire de scan QR dans l'interface DRF.
+      properties:
+        token:
+          type: string
+          minLength: 1
+          description: Collez ici le token QR récupéré depuis GET /api/prescriptions/{id}/qr/
+          maxLength: 200
+      required:
+      - token
+    QRToken:
+      type: object
+      properties:
+        token:
+          type: string
+          maxLength: 64
+        expires_at:
+          type: string
+          format: date-time
+        is_used:
+          type: boolean
+      required:
+      - expires_at
+      - token
+    QRTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 64
+        expires_at:
+          type: string
+          format: date-time
+        is_used:
+          type: boolean
+      required:
+      - expires_at
+      - token
+    RatingEnum:
+      enum:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      type: integer
+      description: |-
+        * `1` - 1
+        * `2` - 2
+        * `3` - 3
+        * `4` - 4
+        * `5` - 5
+    RegisterDoctor:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        phone:
+          type: string
+          maxLength: 20
+      required:
+      - email
+    RegisterDoctorRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        phone:
+          type: string
+          maxLength: 20
+        specialty:
+          type: string
+          writeOnly: true
+          minLength: 1
+        license_number:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - license_number
+      - password
+      - password_confirm
+      - specialty
+    RegisterPatient:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        phone:
+          type: string
+          maxLength: 20
+      required:
+      - email
+    RegisterPatientRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        phone:
+          type: string
+          maxLength: 20
+      required:
+      - email
+      - password
+      - password_confirm
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        appointment:
+          type: integer
+        patient_name:
+          type: string
+          readOnly: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/RatingEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - appointment
+      - created_at
+      - id
+      - patient_name
+      - rating
+    ReviewRequest:
+      type: object
+      properties:
+        appointment:
+          type: integer
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/RatingEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        comment:
+          type: string
+      required:
+      - appointment
+      - rating
+    RoleEnum:
+      enum:
+      - patient
+      - doctor
+      - pharmacist
+      - caretaker
+      - admin
+      type: string
+      description: |-
+        * `patient` - Patient
+        * `doctor` - Doctor
+        * `pharmacist` - Pharmacist
+        * `caretaker` - Caretaker
+        * `admin` - Admin
+    SexEnum:
+      enum:
+      - M
+      - F
+      type: string
+      description: |-
+        * `M` - Masculin
+        * `F` - Féminin
+    SlotDurationEnum:
+      enum:
+      - 15
+      - 20
+      - 30
+      - 45
+      - 60
+      type: integer
+      description: |-
+        * `15` - 15 min
+        * `20` - 20 min
+        * `30` - 30 min
+        * `45` - 45 min
+        * `60` - 1h
+    SpecialtyEnum:
+      enum:
+      - general
+      - cardiology
+      - dermatology
+      - gynecology
+      - pediatrics
+      - ophthalmology
+      - ent
+      - orthopedics
+      - neurology
+      - psychiatry
+      - dentistry
+      - urology
+      - oncology
+      type: string
+      description: |-
+        * `general` - Médecine Générale
+        * `cardiology` - Cardiologie
+        * `dermatology` - Dermatologie
+        * `gynecology` - Gynécologie
+        * `pediatrics` - Pédiatrie
+        * `ophthalmology` - Ophtalmologie
+        * `ent` - O.R.L
+        * `orthopedics` - Orthopédie
+        * `neurology` - Neurologie
+        * `psychiatry` - Psychiatrie
+        * `dentistry` - Dentisterie
+        * `urology` - Urologie
+        * `oncology` - Oncologie
+    Status9f9Enum:
+      enum:
+      - pending
+      - preparing
+      - ready
+      - delivered
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `preparing` - En préparation
+        * `ready` - Prête à récupérer
+        * `delivered` - Livrée
+        * `cancelled` - Annulée
+    StatusE5cEnum:
+      enum:
+      - pending
+      - confirmed
+      - cancelled
+      - refused
+      - completed
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `confirmed` - Confirmé
+        * `cancelled` - Annulé
+        * `refused` - Refusé
+        * `completed` - Terminé
+    SymptomAnalysis:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        symptoms:
+          type: string
+        possible_diagnosis:
+          type: string
+        severity_level:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        date:
+          type: string
+          format: date-time
+          readOnly: true
+        patient:
+          type: integer
+      required:
+      - date
+      - id
+      - patient
+      - symptoms
+    SymptomAnalysisRequest:
+      type: object
+      properties:
+        symptoms:
+          type: string
+          minLength: 1
+        possible_diagnosis:
+          type: string
+        severity_level:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        patient:
+          type: integer
+      required:
+      - patient
+      - symptoms
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    Treatment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        medication_name:
+          type: string
+          maxLength: 200
+        dosage:
+          type: string
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        is_ongoing:
+          type: boolean
+        patient:
+          type: integer
+      required:
+      - dosage
+      - id
+      - medication_name
+      - patient
+      - start_date
+    TreatmentRequest:
+      type: object
+      properties:
+        medication_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        dosage:
+          type: string
+          minLength: 1
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        is_ongoing:
+          type: boolean
+        patient:
+          type: integer
+      required:
+      - dosage
+      - medication_name
+      - patient
+      - start_date
+    TypeEnum:
+      enum:
+      - personnel
+      - familial
+      type: string
+      description: |-
+        * `personnel` - Personnel
+        * `familial` - Familial
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        phone:
+          type: string
+          maxLength: 20
+        sex:
+          oneOf:
+          - $ref: '#/components/schemas/SexEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+        verification_status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+      required:
+      - email
+      - id
+      - role
+      - verification_status
+    UserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        first_name:
+          type: string
+          title: Prénom
+          maxLength: 150
+        last_name:
+          type: string
+          title: Nom
+          maxLength: 150
+        phone:
+          type: string
+          maxLength: 20
+        sex:
+          oneOf:
+          - $ref: '#/components/schemas/SexEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+      required:
+      - email
+    VerificationStatusEnum:
+      enum:
+      - unverified
+      - pending
+      - verified
+      - rejected
+      type: string
+      description: |-
+        * `unverified` - Non vérifié
+        * `pending` - En attente
+        * `verified` - Vérifié
+        * `rejected` - Rejeté
+    WeeklySchedule:
+      type: object
+      description: |-
+        GET  /api/doctor/my-schedule/         → liste des jours de travail
+        POST /api/doctor/my-schedule/         → ajouter/remplacer un jour
+        PUT  /api/doctor/my-schedule/{id}/    → modifier les heures d'un jour
+        DELETE /api/doctor/my-schedule/{id}/  → supprimer un jour
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        day_of_week:
+          allOf:
+          - $ref: '#/components/schemas/DayOfWeekEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        day_label:
+          type: string
+          readOnly: true
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        slot_duration:
+          allOf:
+          - $ref: '#/components/schemas/SlotDurationEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        is_active:
+          type: boolean
+      required:
+      - day_label
+      - day_of_week
+      - end_time
+      - id
+      - start_time
+    WeeklyScheduleRequest:
+      type: object
+      description: |-
+        GET  /api/doctor/my-schedule/         → liste des jours de travail
+        POST /api/doctor/my-schedule/         → ajouter/remplacer un jour
+        PUT  /api/doctor/my-schedule/{id}/    → modifier les heures d'un jour
+        DELETE /api/doctor/my-schedule/{id}/  → supprimer un jour
+      properties:
+        day_of_week:
+          allOf:
+          - $ref: '#/components/schemas/DayOfWeekEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        slot_duration:
+          allOf:
+          - $ref: '#/components/schemas/SlotDurationEnum'
+          minimum: -2147483648
+          maximum: 2147483647
+        is_active:
+          type: boolean
+      required:
+      - day_of_week
+      - end_time
+      - start_time
+    WithdrawalMethodEnum:
+      enum:
+      - patient
+      - caretaker
+      type: string
+      description: |-
+        * `patient` - Retrait par le patient
+        * `caretaker` - Retrait par le garde-malade
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

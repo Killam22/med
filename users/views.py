@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.throttling import AnonRateThrottle
 from .serializers import (
     CustomTokenObtainPairSerializer, 
     RegisterPatientSerializer, 
@@ -11,8 +12,12 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+class LoginRateThrottle(AnonRateThrottle):
+    scope = 'login'
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle]
 
 class RegisterPatientView(generics.CreateAPIView):
     queryset = User.objects.all()

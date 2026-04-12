@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from users.validators import validate_file_type
 
 class Patient(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='patient_profile')
@@ -58,7 +59,7 @@ class LabResult(models.Model):
     test_name = models.CharField(max_length=200)
     date = models.DateField()
     result_value = models.TextField()
-    files = models.FileField(upload_to='lab_results/', null=True, blank=True)
+    files = models.FileField(upload_to='lab_results/', null=True, blank=True, validators=[validate_file_type])
 
     def __str__(self):
         return f"{self.test_name} ({self.date})"
