@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
-
+import random
+from django.utils import timezone
+from django.conf import settings
+ 
 
 class CustomUserManager(UserManager):
     def create_superuser(self, username, email=None, password=None, **extra_fields):
@@ -43,9 +46,46 @@ class CustomUser(AbstractUser):
     wilaya            = models.CharField(max_length=100, blank=True)
     verification_status = models.CharField(max_length=20, choices=VERIFICATION_CHOICES, default='pending')
     created_at          = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
 
     def is_verified(self):
         return self.verification_status == 'verified'
+    
+
+ 
+class EmailOTP(models.Model):
+    """
+    Stores a 6-digit OTP tied to an email address.
+    Used for both registration verification and password reset.
+    """
+    PURPOSE_REGISTER = 'register'
+    PURPOSE_RESET    = 'reset'
+    PURPOSE_CHOICES  = [
+        (PURPOSE_REGISTER, 'Registration'),
+        (PURPOSE_RESET,    'Password Reset'),
+    ]
+ 
+    email      = models.EmailField()
+    otp        = models.CharField(max_length=6)
+    purpose    = models.CharField(max_length=16, choices=PURPOSE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used    = models.BooleanField(default=False)
+ 
+    class Meta:
+        ordering = ['-created_at']
+ 
+    def is_expired(self):
+        return timezone.now() > self.created_at + timezone.timedelta(minutes=10)
+ 
+    @classmethod
+    def generate(cls, email, purpose):
+        # Invalidate any previous unused OTPs for this email+purpose
+        cls.objects.filter(email=email, purpose=purpose, is_used=False).delete()
+        otp = f"{random.randint(0, 999999):06d}"
+        return cls.objects.create(email=email, otp=otp, purpose=purpose)
+ 
+    def __str__(self):
+        return f"{self.email} — {self.purpose} — {self.otp}"

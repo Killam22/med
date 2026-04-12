@@ -3,21 +3,24 @@ from django import forms
 from .models import Patient, MedicalProfile, Antecedent, Treatment ,CustomUser
 
 
-class PatientCompleteProfileForm(forms.ModelForm):
+# patients/forms.py
+from django import forms
+from .models import Patient, MedicalProfile, Antecedent, Treatment
+from users.models import CustomUser
+
+class CustomUserForm(forms.ModelForm):
     class Meta:
-        model  = CustomUser
+        model = CustomUser
         fields = ['sex', 'date_of_birth', 'phone', 'id_card_number',
-                  'id_card_photo', 'address', 'postal_code', 'city',
-                  'wilaya']
+                  'id_card_photo', 'address', 'postal_code', 'city', 'wilaya']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
         }
-        
-        class Meta:
-            model = Patient
-            fields = ['blood_group', 'emergency_contact','access_level']
-     
-     
+
+class PatientForm(forms.ModelForm):
+    class Meta:
+        model = Patient
+        fields = ['blood_group', 'emergency_contact', 'access_level']
 
 class MedicalProfileForm(forms.ModelForm):
     allergies    = forms.CharField(required=False,

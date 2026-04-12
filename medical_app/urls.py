@@ -10,5 +10,6 @@ urlpatterns = [
     path('users/',    include('users.urls')),
     path('patients/', include('patients.urls')),
     path('doctors/',  include('doctors.urls')),
+     path('api/settings/', include('settings.urls'))
     
 ]

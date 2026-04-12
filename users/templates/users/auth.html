@@ -1,266 +1,220 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MedSmart — Auth</title>
-
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<meta charset="UTF-8">
+<title>MedSmart Auth</title>
 
 <style>
-:root{
-  --blue:#638ECB;
-  --blue-deep:#395886;
-  --txt:#0D1B2E;
-  --border:#E4EAF5;
-  --font:'DM Sans',sans-serif
-}
-
-*{box-sizing:border-box;margin:0;padding:0}
-
 body{
-  font-family:var(--font);
-  background:#f0f4fb;
-  height:100vh;
-  overflow:hidden;
-}
-
-.auth-container{
-  position:relative;
-  width:100vw;
-  height:100vh;
-}
-
-/* ───── FORM BOXES ───── */
-.form-box{
-  position:absolute;
-  top:0;
-  width:50%;
-  height:100%;
+  font-family:sans-serif;
+  background:#eef3fb;
   display:flex;
-  align-items:center;
   justify-content:center;
+  align-items:center;
+  height:100vh;
 }
-
-/* LOGIN */
-.form-box.login{
-  left:0;
-}
-
-/* REGISTER */
-.form-box.register{
-  left:100%;
-  visibility:hidden;
-}
-
-/* RESET (FIXED) */
-.form-box.reset-box{
-  left:0;
-  visibility:hidden;
-  opacity:0;
-  transition:opacity .4s ease;
-}
-
-/* STATES */
-.auth-container.active .form-box.login{
-  left:50%;
-  visibility:hidden;
-}
-
-.auth-container.active .form-box.register{
-  left:50%;
-  visibility:visible;
-}
-
-.auth-container.reset .form-box.login,
-.auth-container.reset .form-box.register{
-  visibility:hidden;
-}
-
-.auth-container.reset .form-box.reset-box{
-  visibility:visible;
-  opacity:1;
-  z-index:5;
-}
-
-/* ───── CARD ───── */
-.auth-card{
+.box{
   background:#fff;
-  border-radius:20px;
-  width:360px;
   padding:30px;
-  box-shadow:0 10px 30px rgba(0,0,0,.08);
+  border-radius:12px;
+  width:340px;
+  box-shadow:0 10px 30px rgba(0,0,0,.1);
 }
-
-.auth-form-title{
-  text-align:center;
-  margin-bottom:20px;
-}
-
-/* ───── INPUT ───── */
-.auth-field{
-  margin-bottom:15px;
-}
-
-.auth-field input{
+h2{text-align:center;margin-bottom:20px}
+input{
   width:100%;
-  padding:12px;
-  border-radius:10px;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:8px;
   border:1px solid #ccc;
 }
-
-/* ───── BUTTON ───── */
-.auth-submit{
+button{
   width:100%;
-  padding:12px;
-  background:#6492C9;
+  padding:10px;
   border:none;
+  background:#4f7cff;
   color:#fff;
-  border-radius:10px;
+  border-radius:8px;
   cursor:pointer;
 }
+.hidden{display:none}
+.link{cursor:pointer;color:#4f7cff;text-align:center;margin-top:8px}
 
-/* ───── LINKS ───── */
-.auth-forgot{
-  display:block;
-  text-align:center;
-  margin:10px 0;
+/* ROLE BUTTONS */
+.roles{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-bottom:10px;
+}
+.role-btn{
+  padding:8px;
+  border:1px solid #ccc;
+  border-radius:8px;
   cursor:pointer;
-  color:#555;
+  text-align:center;
+}
+.role-btn.active{
+  background:#4f7cff;
+  color:white;
+}
+
+/* OTP */
+.otp{display:flex;justify-content:center;gap:6px;margin-bottom:10px}
+.otp input{
+  width:40px;
+  text-align:center;
+  font-size:18px;
 }
 </style>
 </head>
 
-<body>
+<body onload="
+{% if show_register %} setMode('register'); {% endif %}
+{% if show_reset %} setMode('reset'); {% endif %}
+{% if show_verify %} setMode('verify'); {% endif %}
+{% if show_new_password %} setMode('new'); {% endif %}
+">
 
-<div class="auth-container" id="authContainer">
+<div class="box">
 
 <!-- LOGIN -->
-<div class="form-box login">
-  <div class="auth-card">
-    <h2 class="auth-form-title">Login</h2>
+<div id="loginBox">
+<h2>Login</h2>
 
-    <form>
-      <div class="auth-field">
-        <input type="email" placeholder="Email">
-      </div>
+<form method="POST" action="{% url 'user_login' %}">
+{% csrf_token %}
+<input name="email" placeholder="Email" required>
+<input name="password" type="password" placeholder="Password" required>
+<button>Login</button>
+</form>
 
-      <div class="auth-field">
-        <input type="password" id="lPwd" placeholder="Password">
-      </div>
-
-      <a class="auth-forgot" onclick="setMode('reset')">Forgot password?</a>
-
-      <button class="auth-submit">Login</button>
-    </form>
-  </div>
+<div class="link" onclick="setMode('register')">Create account</div>
+<div class="link" onclick="setMode('reset')">Forgot password?</div>
 </div>
 
 <!-- REGISTER -->
-<div class="form-box register">
-  <div class="auth-card">
-    <h2 class="auth-form-title">Register</h2>
+<div id="registerBox" class="hidden">
+<h2>Register</h2>
 
-    <form>
-      <div class="auth-field">
-        <input type="text" placeholder="Name">
-      </div>
+<form method="POST" action="{% url 'register' %}">
+{% csrf_token %}
 
-      <div class="auth-field">
-        <input type="email" placeholder="Email">
-      </div>
+<input name="first_name" placeholder="First name" required>
+<input name="last_name" placeholder="Last name" required>
+<input name="email" placeholder="Email" required>
+<input name="password" type="password" placeholder="Password" required>
+<input name="password2" type="password" placeholder="Confirm Password" required>
 
-      <div class="auth-field">
-        <input type="password" placeholder="Password">
-      </div>
-
-      <button class="auth-submit">Register</button>
-    </form>
-  </div>
+<!-- ROLE SELECT -->
+<div class="roles">
+  <div class="role-btn active" onclick="selectRole('patient',this)">Patient</div>
+  <div class="role-btn" onclick="selectRole('doctor',this)">Doctor</div>
+  <div class="role-btn" onclick="selectRole('pharmacist',this)">Pharmacist</div>
+  <div class="role-btn" onclick="selectRole('caretaker',this)">Caretaker</div>
 </div>
 
-```html
-<!-- 🔥 SEULE MODIFICATION IMPORTANTE = FORM RESET -->
+<input type="hidden" name="role" id="roleInput" value="patient">
 
-<!-- ── PASSWORD RESET FORM ───────────────────────────────────────────── -->
-<div class="form-box reset-box">
-  <div class="auth-form-inner">
-    <div class="auth-card">
+<button>Create Account</button>
+</form>
 
-      <!-- State A -->
-      <div id="resetFormWrap">
-        <h2 class="auth-form-title">Reset Password</h2>
-        <p class="auth-form-subtitle">
-          Enter your registered email and we'll send you a reset link.
-        </p>
-
-        {% if reset_error %}
-        <div class="auth-error-box show">{{ reset_error }}</div>
-        {% endif %}
-
-        <!-- ✅ FIXED FORM -->
-          <form method="post" action="{% url 'password_reset_request' %}">
-           {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Envoyer le mail</button>
-          </form>
-
-        <a class="auth-forgot" onclick="setMode('login')">
-          ← Back to login
-        </a>
-      </div>
-
-      <!-- State B -->
-      <div id="resetDoneWrap" style="display:none">
-        <div class="reset-sent">
-          <div class="reset-sent-icon">📬</div>
-          <h2 class="auth-form-title">Check your inbox</h2>
-
-          <p>
-            A reset link has been sent if that email is registered.<br/>
-            The link expires in <strong>1 hour</strong>.
-          </p>
-        </div>
-
-        <br/>
-
-        <button class="auth-submit" onclick="setMode('login')">
-          Back to login
-        </button>
-
-        <a class="auth-forgot"
-           onclick="document.getElementById('resetDoneWrap').style.display='none';
-                    document.getElementById('resetFormWrap').style.display='block'">
-          Try a different email
-        </a>
-      </div>
-
-    </div>
-  </div>
+<div class="link" onclick="setMode('login')">Back to login</div>
 </div>
 
+<!-- RESET EMAIL -->
+<div id="resetBox" class="hidden">
+<h2>Reset Password</h2>
+
+<form method="POST" action="{% url 'password_reset_request' %}">
+{% csrf_token %}
+<input name="email" placeholder="Email" required>
+<button>Send Code</button>
+</form>
+
+<div class="link" onclick="setMode('login')">Back</div>
+</div>
+
+<!-- OTP -->
+<div id="verifyBox" class="hidden">
+<h2>Enter Code</h2>
+
+<p style="text-align:center">{{ verify_email }}</p>
+
+<form method="POST"
+action="{% if verify_purpose == 'register' %}{% url 'verify_register_otp' %}{% else %}{% url 'verify_reset_otp' %}{% endif %}">
+{% csrf_token %}
+
+<div class="otp">
+<input maxlength="1" class="d">
+<input maxlength="1" class="d">
+<input maxlength="1" class="d">
+<input maxlength="1" class="d">
+<input maxlength="1" class="d">
+<input maxlength="1" class="d">
+</div>
+
+<input type="hidden" name="otp" id="otpHidden">
+
+<button>Verify</button>
+</form>
+</div>
+
+<!-- NEW PASSWORD -->
+<div id="newBox" class="hidden">
+<h2>New Password</h2>
+
+<form method="POST" action="{% url 'password_reset_set' %}">
+{% csrf_token %}
+<input name="new_password1" type="password" placeholder="New password" required>
+<input name="new_password2" type="password" placeholder="Confirm password" required>
+<button>Save</button>
+</form>
+</div>
+
+</div>
 
 <script>
-const container = document.getElementById('authContainer');
+function hideAll(){
+  ['loginBox','registerBox','resetBox','verifyBox','newBox']
+  .forEach(id=>document.getElementById(id).classList.add('hidden'));
+}
 
 function setMode(mode){
-  container.classList.remove('active','reset');
-
-  if(mode==='register'){
-    container.classList.add('active');
-  }
-  else if(mode==='reset'){
-    container.classList.add('reset');
-  }
+  hideAll();
+  if(mode==='login') document.getElementById('loginBox').classList.remove('hidden');
+  if(mode==='register') document.getElementById('registerBox').classList.remove('hidden');
+  if(mode==='reset') document.getElementById('resetBox').classList.remove('hidden');
+  if(mode==='verify') document.getElementById('verifyBox').classList.remove('hidden');
+  if(mode==='new') document.getElementById('newBox').classList.remove('hidden');
 }
 
-function showDone(){
-  document.getElementById('resetFormWrap').style.display='none';
-  document.getElementById('resetDoneWrap').style.display='block';
+/* ROLE SELECT */
+function selectRole(role,el){
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('roleInput').value = role;
 }
+
+/* OTP AUTO JOIN */
+const inputs = document.querySelectorAll('.d');
+const hidden = document.getElementById('otpHidden');
+
+inputs.forEach((input,i)=>{
+  input.addEventListener('input',()=>{
+    if(input.value && i<5) inputs[i+1].focus();
+    hidden.value = [...inputs].map(x=>x.value).join('');
+  });
+});
+
+/* FORCE DJANGO MODE */
+document.addEventListener("DOMContentLoaded", function(){
+  {% if show_verify %} setMode('verify'); {% endif %}
+  {% if show_reset %} setMode('reset'); {% endif %}
+  {% if show_register %} setMode('register'); {% endif %}
+  {% if show_new_password %} setMode('new'); {% endif %}
+});
 </script>
 
 </body>
 </html>
-```

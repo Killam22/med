@@ -34,7 +34,7 @@ def complete_doctor_profile(request):
         pro_form      = Doctor_professionel_infoForm()
         exercice_form = ExerciceForm()
 
-    return render(request, 'doctors/complete_profile.html', {
+    return render(request, 'doctors/complete_doctor_profile.html', {
         'form': form,
         'pro_form': pro_form,
         'exercice_form': exercice_form,

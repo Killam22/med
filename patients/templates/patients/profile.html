@@ -1,0 +1,69 @@
+
+{% block title %}My Profile — MedSmart{% endblock %}
+{% block nav_profile %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.profile-hero{background:linear-gradient(120deg,var(--blue-deep),#4a7ab5);border-radius:var(--radius);padding:32px;color:#fff;margin-bottom:24px;display:flex;align-items:center;gap:24px}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:600;flex-shrink:0;border:3px solid rgba(255,255,255,.4)}
+.profile-hero-info h2{font-family:var(--serif);font-size:1.4rem;font-weight:500;margin-bottom:4px}
+.profile-hero-info p{opacity:.8;font-size:.875rem}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:.875rem}
+.info-row:last-child{border-bottom:none}
+.info-row-label{color:var(--txt3);font-weight:500}
+.info-row-val{font-weight:600;color:var(--txt)}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">My Profile</h1>
+  <p class="page-subtitle">Your personal and medical details</p>
+</div>
+
+<div class="profile-hero">
+  <div class="profile-avatar">{{ patient.user.first_name|first|upper }}{{ patient.user.last_name|first|upper }}</div>
+  <div class="profile-hero-info">
+    <h2>{{ patient.user.get_full_name }}</h2>
+    <p>{{ patient.user.email }}</p>
+    <p style="margin-top:6px">
+      <span style="background:rgba(255,255,255,.15);padding:3px 12px;border-radius:20px;font-size:.78rem">Patient</span>
+      {% if patient.blood_group %}
+      <span style="background:rgba(248,113,113,.3);padding:3px 12px;border-radius:20px;font-size:.78rem;margin-left:6px">{{ patient.blood_group }}</span>
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'patients:edit_profile' %}" class="btn" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)">Edit Profile</a>
+</div>
+
+<div class="info-grid">
+  <!-- Personal -->
+  <div class="card">
+    <div class="card-title">Personal Details</div>
+    <div class="info-row"><span class="info-row-label">Full Name</span><span class="info-row-val">{{ patient.user.get_full_name }}</span></div>
+    <div class="info-row"><span class="info-row-label">Email</span><span class="info-row-val">{{ patient.user.email }}</span></div>
+    <div class="info-row"><span class="info-row-label">Phone</span><span class="info-row-val">{{ patient.user.phone|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-row-label">Date of Birth</span><span class="info-row-val">{{ patient.user.date_of_birth|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-row-label">Sex</span><span class="info-row-val">{{ patient.user.get_sex_display|default:"—" }}</span></div>
+    <div class="info-row"><span class="info-row-label">ID Card</span><span class="info-row-val">{{ patient.user.id_card_number|default:"—" }}</span></div>
+  </div>
+
+  <!-- Address & Medical -->
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-title">Address</div>
+      <div class="info-row"><span class="info-row-label">Address</span><span class="info-row-val">{{ patient.user.address|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-row-label">City</span><span class="info-row-val">{{ patient.user.city|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-row-label">Postal Code</span><span class="info-row-val">{{ patient.user.postal_code|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-row-label">Wilaya</span><span class="info-row-val">{{ patient.user.wilaya|default:"—" }}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Medical</div>
+      <div class="info-row"><span class="info-row-label">Blood Group</span><span class="info-row-val">{{ patient.blood_group|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-row-label">Emergency Contact</span><span class="info-row-val">{{ patient.emergency_contact|default:"—" }}</span></div>
+      <div class="info-row"><span class="info-row-label">Access Level</span><span class="info-row-val">{{ patient.access_level|default:"standard" }}</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

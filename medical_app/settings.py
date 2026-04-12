@@ -33,7 +33,6 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.sites',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -43,6 +42,7 @@ INSTALLED_APPS = [
     'patients',
     'pharmacy',
     'caretaker',
+    'settings',
 ]
 
 MIDDLEWARE = [
@@ -135,16 +135,10 @@ AUTH_USER_MODEL = 'users.CustomUser'
 # Posted by Ivan Semochkin, modified by community. See post 'Timeline' for change history
 # Retrieved 2026-03-24, License - CC BY-SA 4.0
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # dev
-PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
-# Email backend (pour tests, console affiche l'email dans terminal)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# Pour envoyer de vrais emails avec Gmail (exemple)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'thecoldmonster@gmail.com'         # ton email
-EMAIL_HOST_PASSWORD = 'loveme0000.'    # mot de passe d'application Gmail
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = 'medicalsmartapp@gmail.com'
+EMAIL_HOST_PASSWORD = 'yarv xitx ohgc jkwo'  # <-- use the 16-char app password
+DEFAULT_FROM_EMAIL = 'medicalsmartapp@gmail.com'

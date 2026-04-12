@@ -5,7 +5,7 @@ from . import views
 app_name = 'doctors'
 
 urlpatterns = [
-    path('complete-profile/', views.complete_doctor_profile, name='complete_doctor_profile'),
-    path('dashboard/',       views.dashboard,       name='dashboard'),
+    path('complete_doctor_profile/', views.complete_doctor_profile, name='complete_doctor_profile'),
+    
    
 ]
