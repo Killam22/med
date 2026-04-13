@@ -7,7 +7,11 @@ from prescriptions.models import Prescription
 class PharmacistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pharmacist
-        fields = '__all__'
+        fields = [
+            'id', 'user', 'license_number', 'pharmacy_name', 
+            'address', 'city', 'phone', 'is_verified', 
+            'latitude', 'longitude', 'pharmacy_license'
+        ]
 
 class PharmacyBranchSerializer(serializers.ModelSerializer):
     class Meta:
@@ -35,9 +39,13 @@ class PharmacyOrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'patient', 'created_at', 'updated_at']
 
     def get_prescription_ref(self, obj):
+        if not obj.prescription:
+            return None
         return f"RX-{str(obj.prescription.id)[:8].upper()}"
 
     def get_items(self, obj):
+        if not obj.prescription:
+            return []
         return PrescriptionItemSerializer(
             obj.prescription.items.all(), many=True
         ).data

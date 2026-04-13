@@ -124,7 +124,7 @@ class AppointmentDoctorSerializer(serializers.ModelSerializer):
     """
     patient_name    = serializers.CharField(source='patient.user.get_full_name', read_only=True)
     patient_email   = serializers.EmailField(source='patient.user.email', read_only=True)
-    patient_phone   = serializers.CharField(source='patient.phone_number', read_only=True)
+    patient_phone   = serializers.CharField(source='patient.user.phone', read_only=True)
     duration_minutes = serializers.IntegerField(read_only=True)
     status_display  = serializers.CharField(source='get_status_display', read_only=True)
 

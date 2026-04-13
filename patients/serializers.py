@@ -11,13 +11,13 @@ class PatientSerializer(serializers.ModelSerializer):
     phone = serializers.CharField(source='user.phone', required=False, allow_blank=True)
     address = serializers.CharField(source='user.address', required=False, allow_blank=True)
     city = serializers.CharField(source='user.city', required=False, allow_blank=True)
-    blood_type = serializers.CharField(source='user.blood_type', required=False, allow_blank=True)
+    blood_group = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Patient
         fields = [
             'id', 'email', 'first_name', 'last_name', 'date_of_birth', 'age',
-            'phone', 'address', 'city', 'blood_type', 'medical_history', 'photo',
+            'phone', 'address', 'city', 'blood_group', 'medical_history', 'photo',
         ]
 
     def update(self, instance, validated_data):
