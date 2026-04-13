@@ -33,7 +33,8 @@ class AdminPanelTests(APITestCase):
             email='doctor@test.com',
             username='doctor',
             password='password123',
-            role='doctor'
+            role='doctor',
+            is_active=True
         )
         self.doctor_profile = Doctor.objects.create(
             user=self.doctor_user,
