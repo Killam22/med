@@ -51,10 +51,8 @@ class CustomUser(AbstractUser):
     postal_code       = models.CharField(max_length=10, blank=True)
     city              = models.CharField(max_length=100, blank=True)
     wilaya            = models.CharField(max_length=100, blank=True)
-    # Champs hérités de l'ancien modèle (encore présents en DB)
-    blood_type        = models.CharField(max_length=5, blank=True, default='')
-    emergency_contact = models.CharField(max_length=100, blank=True, default='')
-    access_level      = models.IntegerField(blank=True, default=1)
+
+   
     # ─────────────────────────────────────────────────────────────────
     verification_status = models.CharField(max_length=20, choices=VERIFICATION_CHOICES, default='pending')
     created_at          = models.DateTimeField(auto_now_add=True)

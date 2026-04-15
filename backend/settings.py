@@ -85,11 +85,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'medical_db',
+        'NAME': 'meddb_malik',
         'USER': 'postgres',
-        'PASSWORD': 'malik',
+        'PASSWORD': 'khaouladerbil',
         'HOST': 'localhost',
-        'PORT': '5433',
+        'PORT': '5432',
     
         },
     }

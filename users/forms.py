@@ -11,7 +11,7 @@ class registerForm(forms.ModelForm):
 
     class Meta:
         model  = CustomUser
-        fields = ['first_name', 'last_name', 'email', 'password', 'role']
+        fields = ['first_name', 'last_name', 'email', 'password', 'role', 'phone', 'sex', 'date_of_birth','id_card_number','id_card_recto','id_card_verso', 'address', 'postal_code', 'city', 'wilaya']
 
     def clean(self):
         cleaned_data = super().clean()

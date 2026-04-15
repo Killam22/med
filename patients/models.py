@@ -4,7 +4,7 @@ from users.validators import validate_file_type
 
 class Patient(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='patient_profile')
-    medical_history = models.TextField(blank=True)
+
     photo = models.ImageField(upload_to='patients/', null=True, blank=True)
     blood_group = models.CharField(max_length=5, blank=True) # Redundant but kept for teammate's code compatibility
     
