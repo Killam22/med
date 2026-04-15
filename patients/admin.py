@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Patient, MedicalProfile, Antecedent, Treatment, LabResult, SymptomAnalysis
+from .models import Patient, MedicalProfile, Antecedent, Treatment, MedicalDocument
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
@@ -22,5 +22,4 @@ class MedicalProfileAdmin(admin.ModelAdmin):
 
 admin.site.register(Antecedent)
 admin.site.register(Treatment)
-admin.site.register(LabResult)
-admin.site.register(SymptomAnalysis)
+admin.site.register(MedicalDocument)

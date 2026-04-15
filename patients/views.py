@@ -1,12 +1,11 @@
 from rest_framework import generics, permissions
-from .models import Patient, MedicalProfile, Antecedent, Treatment, LabResult, SymptomAnalysis
+from .models import Patient, MedicalProfile, Antecedent, Treatment, MedicalDocument
 from .serializers import (
     PatientSerializer,
     MedicalProfileSerializer,
     AntecedentSerializer,
     TreatmentSerializer,
-    LabResultSerializer,
-    SymptomAnalysisSerializer
+    MedicalDocumentSerializer
 )
 from appointments.permissions import IsPatient
 
@@ -45,25 +44,16 @@ class TreatmentListView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(patient=self.request.user.patient_profile)
 
-class LabResultListView(generics.ListCreateAPIView):
-    serializer_class = LabResultSerializer
+class MedicalDocumentListView(generics.ListCreateAPIView):
+    serializer_class = MedicalDocumentSerializer
     permission_classes = [IsPatient]
 
     def get_queryset(self):
-        return LabResult.objects.filter(patient=self.request.user.patient_profile)
+        return MedicalDocument.objects.filter(patient=self.request.user.patient_profile)
 
     def perform_create(self, serializer):
         serializer.save(patient=self.request.user.patient_profile)
 
-class SymptomAnalysisListView(generics.ListCreateAPIView):
-    serializer_class = SymptomAnalysisSerializer
-    permission_classes = [IsPatient]
-
-    def get_queryset(self):
-        return SymptomAnalysis.objects.filter(patient=self.request.user.patient_profile)
-
-    def perform_create(self, serializer):
-        serializer.save(patient=self.request.user.patient_profile)
 
 class DoctorPatientsListView(generics.ListAPIView):
     """GET /api/patients/my-patients/ — Liste des patients ayant un RDV avec le médecin."""
