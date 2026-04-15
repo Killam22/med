@@ -30,12 +30,11 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()  # ← attach the custom manager
 
     email = models.EmailField(unique=True)
-    username = models.CharField(max_length=150, unique=True, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = ['role']
 
-    role                = models.CharField(max_length=20, choices=ROLE_CHOICES, default='patient')
+    role= models.CharField(max_length=20, choices=ROLE_CHOICES)
     
     SEX_CHOICES = [('male','Male'), ('female','Female')]
     first_name        = models.CharField(max_length=50, blank=True)
@@ -51,15 +50,12 @@ class CustomUser(AbstractUser):
     postal_code       = models.CharField(max_length=10, blank=True)
     city              = models.CharField(max_length=100, blank=True)
     wilaya            = models.CharField(max_length=100, blank=True)
-
-   
-    # ─────────────────────────────────────────────────────────────────
     verification_status = models.CharField(max_length=20, choices=VERIFICATION_CHOICES, default='pending')
     created_at          = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.username} ({self.role})"
+        return f"{self.email} ({self.role})"
 
     def is_verified(self):
         return self.verification_status == 'verified'

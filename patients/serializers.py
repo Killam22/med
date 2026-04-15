@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Patient, MedicalProfile, Antecedent, Treatment, LabResult, SymptomAnalysis
+from .models import Patient, MedicalProfile, Antecedent, Treatment, MedicalDocument
 
 class PatientSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
@@ -17,7 +17,7 @@ class PatientSerializer(serializers.ModelSerializer):
         model = Patient
         fields = [
             'id', 'email', 'first_name', 'last_name', 'date_of_birth', 'age',
-            'phone', 'address', 'city', 'blood_group', 'medical_history', 'photo',
+            'phone', 'address', 'city', 'blood_group', 'medical_history'
         ]
 
     def update(self, instance, validated_data):
@@ -45,12 +45,8 @@ class TreatmentSerializer(serializers.ModelSerializer):
          model = Treatment
          fields = '__all__'
 
-class LabResultSerializer(serializers.ModelSerializer):
+class MedicalDocumentSerializer(serializers.ModelSerializer):
     class Meta:
-         model = LabResult
+         model = MedicalDocument
          fields = '__all__'
 
-class SymptomAnalysisSerializer(serializers.ModelSerializer):
-    class Meta:
-         model = SymptomAnalysis
-         fields = '__all__'
