@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from users.validators import validate_file_type
 
 class Doctor(models.Model):
     SPECIALTY_CHOICES = (
@@ -20,37 +21,27 @@ class Doctor(models.Model):
     )
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='doctor_profile')
-    specialty = models.CharField(max_length=50, choices=SPECIALTY_CHOICES, default='general')
-    license_number = models.CharField(max_length=50, unique=True)
+    specialty = models.CharField(max_length=50, choices=SPECIALTY_CHOICES, blank=False)
+    license_number = models.CharField(max_length=50, unique=True, blank=False)
+    practice_authorization = models.FileField(upload_to='doctor_authorizations/', null=True, blank=False, validators=[validate_file_type])
     clinic_name = models.CharField(max_length=200, blank=True)
     experience_years = models.PositiveIntegerField(default=0)
     bio = models.TextField(blank=True)
     consultation_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    photo = models.ImageField(upload_to='doctors/', null=True, blank=True)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     total_reviews = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=False)
     languages = models.CharField(max_length=200, blank=True, help_text="Ex: Français, Arabe, Anglais")
-    practice_authorization = models.FileField(upload_to='doctor_authorizations/', null=True, blank=True)
 
     def __str__(self):
         return f"Dr. {self.user.get_full_name()}"
 
-class Doctor_professionel_info(models.Model):
-    doctor = models.OneToOneField(Doctor, on_delete=models.CASCADE, related_name='professional_info')
-    diploma = models.ForeignKey('DoctorQualification', on_delete=models.SET_NULL, null=True, blank=True, related_name='professional_infos')
-    order_registration_number = models.CharField(max_length=100, blank=True)
-    cv = models.FileField(upload_to='cvs/', null=True, blank=True)
-    
-    def __str__(self):
-        return f"Infos Pro - {self.doctor}"
-
 class Exercice(models.Model):
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='exercises')
     establishment_name = models.CharField(max_length=200)
-    address = models.TextField()
-    city = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20, blank=True)
+    est_address = models.TextField()
+    est_city = models.CharField(max_length=100)
+    pro_phone = models.CharField(max_length=10, blank=True)
     is_main_location = models.BooleanField(default=False)
 
     def __str__(self):
@@ -101,7 +92,7 @@ class DoctorQualification(models.Model):
     institution = models.CharField(max_length=200)
     graduation_year = models.PositiveIntegerField()
     degree_type = models.CharField(max_length=100)
-    scan = models.FileField(upload_to='doctor_qualifications/')
+    scan = models.FileField(upload_to='doctor_qualifications/', validators=[validate_file_type])
 
     def __str__(self):
         return f"{self.title} - {self.doctor.user.last_name}"

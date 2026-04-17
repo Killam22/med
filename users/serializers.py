@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -5,9 +6,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Import des modèles de profils spécifiques
 from patients.models import Patient
-from doctors.models import Doctor
-from pharmacy.models import Pharmacist
-from caretaker.models import Caretaker
+from doctors.models import Doctor, DoctorQualification
+from pharmacy.models import Pharmacist, Pharmacy , PharmacistQualification
+from caretaker.models import Caretaker, CaretakerCertificate
 
 User = get_user_model()
 
@@ -41,22 +42,52 @@ class RegisterUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name', 'password', 'password_confirm', 'role', 'phone']
+        fields = ['email', 'first_name', 'last_name', 'password', 'password_confirm', 'role', 'phone', 'sex', 'date_of_birth',
+        'id_card_number', 'id_card_recto', 'id_card_verso', 'photo', 'address', 'postal_code', 'city', 'wilaya']
 
-    def validate(self, data):
-        if data['password'] != data.pop('password_confirm'):
-            raise serializers.ValidationError({"password_confirm": "Les mots de passe ne correspondent pas."})
-        return data
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'sex': {'required': True},
+            'date_of_birth': {'required': True},
+            'id_card_number': {'required': True},
+            'phone': {'required': True},
+            'address': {'required': True},
+            'city': {'required': True},
+            'wilaya': {'required': True},
+            'postal_code': {'required': True},
+            'id_card_recto': {'required': True},
+            'id_card_verso': {'required': True},
+        
+        }
+       
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({"password": "Les mots de passe ne correspondent pas."})
+        return attrs
 
+    def create(self, validated_data):
+        validated_data.pop('password_confirm')
+        email = validated_data.get('email')
+        validated_data['username'] = email
+        # set_password gère le hachage automatique
+        user = User.objects.create_user(**validated_data)
+        return user    
 
 # ── 🏥 Inscriptions Spécifiques (Création des profils) ─────────────────────────
 
 class RegisterPatientSerializer(RegisterUserSerializer):
+
+    class Meta(RegisterUserSerializer.Meta):
+        fields = RegisterUserSerializer.Meta.fields 
+
     def create(self, validated_data):
         validated_data['role'] = 'patient'
-        validated_data['is_active'] = False  # Désactivé en attente de l'OTP
+        validated_data['verification_status'] = 'verified'
+        validated_data['is_active'] = True 
         validated_data.setdefault('username', validated_data['email'])
-        user = User.objects.create_user(**validated_data)
+        user = super().create(validated_data)
         Patient.objects.create(user=user)
         return user
 
@@ -64,52 +95,124 @@ class RegisterPatientSerializer(RegisterUserSerializer):
 class RegisterDoctorSerializer(RegisterUserSerializer):
     specialty = serializers.CharField(write_only=True)
     license_number = serializers.CharField(write_only=True)
+    practice_authorization = serializers.FileField(write_only=True)
+    diploma_title = serializers.CharField(write_only=True)
+    diploma_institution = serializers.CharField(write_only=True)
+    diploma_year = serializers.IntegerField(write_only=True)
+    diploma_type = serializers.CharField(write_only=True)
+    diploma_scan = serializers.FileField(write_only=True)
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields + ['specialty', 'license_number']
+        fields = RegisterUserSerializer.Meta.fields + [
+            'specialty', 'license_number', 'practice_authorization',
+            'diploma_title', 'diploma_institution', 'diploma_year', 'diploma_type', 'diploma_scan'
+        ]
 
+    @transaction.atomic
     def create(self, validated_data):
-        specialty = validated_data.pop('specialty')
-        license_number = validated_data.pop('license_number')
+        spec = validated_data.pop('specialty')
+        lic = validated_data.pop('license_number')
+        practice_auth = validated_data.pop('practice_authorization')
+        qualif_data = {
+            'title': validated_data.pop('diploma_title'),
+            'institution': validated_data.pop('diploma_institution'),
+            'graduation_year': validated_data.pop('diploma_year'),   # ← nom réel du modèle
+            'degree_type': validated_data.pop('diploma_type'),       # ← nom réel du modèle
+            'scan': validated_data.pop('diploma_scan')
+        }
         validated_data['role'] = 'doctor'
-        validated_data['is_active'] = False  # Désactivé en attente de l'OTP
-        validated_data.setdefault('username', validated_data['email'])
-        
-        user = User.objects.create_user(**validated_data)
-        Doctor.objects.create(user=user, specialty=specialty, license_number=license_number)
+        validated_data['verification_status'] = 'pending'
+        validated_data['is_active'] = False  
+        user = super().create(validated_data)
+        doctor_profile = Doctor.objects.create(
+            user=user,
+            specialty=spec,
+            license_number=lic,
+            practice_authorization=practice_auth
+        )
+        DoctorQualification.objects.create(doctor=doctor_profile, **qualif_data)
         return user
 
 
 class RegisterPharmacistSerializer(RegisterUserSerializer):
-    license_number = serializers.CharField(write_only=True)  # correspond au champ Pharmacist.license_number
+    order_registration_number = serializers.CharField(write_only=True)
+    # Pharmacie
+    pharmacy_name = serializers.CharField(write_only=True)
+    pharmacy_license_number = serializers.CharField(write_only=True)
+    pharmacy_license = serializers.FileField(write_only=True)
+    # Diplôme (identique à DoctorQualification)
+    diploma_title = serializers.CharField(write_only=True)
+    diploma_institution = serializers.CharField(write_only=True)
+    diploma_year = serializers.IntegerField(write_only=True)
+    diploma_type = serializers.CharField(write_only=True)
+    diploma_scan = serializers.FileField(write_only=True)
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields + ['license_number']
+        fields = RegisterUserSerializer.Meta.fields + [
+            'order_registration_number',
+            'pharmacy_name', 'pharmacy_license_number', 'pharmacy_license',
+            'diploma_title', 'diploma_institution', 'diploma_year', 'diploma_type', 'diploma_scan',
+        ]
 
+    @transaction.atomic
     def create(self, validated_data):
-        license_num = validated_data.pop('license_number')
+        order_reg_num = validated_data.pop('order_registration_number')
+        pharmacy_data = {
+            'name': validated_data.pop('pharmacy_name'),
+            'license_number': validated_data.pop('pharmacy_license_number'),
+            'pharmacy_license': validated_data.pop('pharmacy_license'),
+            'pharm_address': validated_data.get('address'),
+            'pharm_city': validated_data.get('city'),
+        }
+        qualif_data = {
+            'title': validated_data.pop('diploma_title'),
+            'institution': validated_data.pop('diploma_institution'),
+            'graduation_year': validated_data.pop('diploma_year'),
+            'degree_type': validated_data.pop('diploma_type'),
+            'scan': validated_data.pop('diploma_scan'),
+        }
         validated_data['role'] = 'pharmacist'
+        validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False
-        validated_data.setdefault('username', validated_data['email'])
-        
-        user = User.objects.create_user(**validated_data)
-        Pharmacist.objects.create(user=user, license_number=license_num)
+
+        user = super().create(validated_data)
+        pharmacist_profile = Pharmacist.objects.create(user=user, order_registration_number=order_reg_num)
+        Pharmacy.objects.create(pharmacist=pharmacist_profile, **pharmacy_data)
+        PharmacistQualification.objects.create(pharmacist=pharmacist_profile, **qualif_data)
         return user
 
 
 class RegisterCaretakerSerializer(RegisterUserSerializer):
-    sex = serializers.CharField(required=False, allow_blank=True, default='')
+    professional_license_number = serializers.CharField(write_only=True)
+    cert_title = serializers.CharField(write_only=True)
+    cert_organization = serializers.CharField(write_only=True)
+    cert_date_obtained = serializers.DateField(write_only=True)
+    cert_expiration_date = serializers.DateField(write_only=True)
+    cert_scan = serializers.FileField(write_only=True)
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields + ['sex']
+        fields = RegisterUserSerializer.Meta.fields + ['professional_license_number', 'cert_title', 'cert_organization', 'cert_date_obtained', 'cert_expiration_date', 'cert_scan']
 
+    @transaction.atomic
     def create(self, validated_data):
+        license_number = validated_data.pop('professional_license_number')
+        cert_data = {
+            'name': validated_data.pop('cert_title'),           # ← nom réel du modèle CaretakerCertificate
+            'organization': validated_data.pop('cert_organization'),
+            'date_obtained': validated_data.pop('cert_date_obtained'),
+            'expiration_date': validated_data.pop('cert_expiration_date'),
+            'scan': validated_data.pop('cert_scan')
+        }
         validated_data['role'] = 'caretaker'
+        validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False
-        validated_data.setdefault('username', validated_data['email'])
         
-        user = User.objects.create_user(**validated_data)
-        Caretaker.objects.create(user=user)
+        user = super().create(validated_data)
+        caretaker_profile = Caretaker.objects.create(
+            user=user,
+            professional_license_number=license_number  # ← nom réel du modèle Caretaker
+        )
+        CaretakerCertificate.objects.create(caretaker=caretaker_profile, **cert_data)
         return user
 
 

@@ -1,18 +1,18 @@
 from django.contrib import admin
-from .models import Pharmacist, PharmacyBranch, PharmacyOrder
+from .models import Pharmacist, Pharmacy, PharmacyOrder
 
 
 @admin.register(Pharmacist)
 class PharmacistAdmin(admin.ModelAdmin):
-    list_display  = ['pharmacy_name', 'user', 'city', 'license_number', 'is_verified']
-    list_filter   = ['is_verified', 'city']
-    search_fields = ['pharmacy_name', 'user__email', 'user__first_name', 'user__last_name', 'license_number']
+    list_display  = ['user', 'order_registration_number', 'is_verified']
+    list_filter   = ['is_verified', 'user__city']
+    search_fields = ['user__email', 'user__first_name', 'user__last_name']
     list_editable = ['is_verified']
     readonly_fields = ['user']
 
     fieldsets = (
         ('Informations pharmacien', {
-            'fields': ('user', 'pharmacy_name', 'license_number', 'is_verified')
+            'fields': ('user', 'order_registration_number', 'is_verified')
         }),
         ('Coordonnées', {
             'fields': ('address', 'city', 'phone')
@@ -20,11 +20,11 @@ class PharmacistAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(PharmacyBranch)
-class PharmacyBranchAdmin(admin.ModelAdmin):
-    list_display  = ['branch_name', 'pharmacist', 'city', 'is_open_24h']
-    list_filter   = ['is_open_24h', 'city']
-    search_fields = ['branch_name', 'pharmacist__pharmacy_name']
+@admin.register(Pharmacy)
+class PharmacyAdmin(admin.ModelAdmin):
+    list_display  = ['name', 'pharmacist', 'pharm_city', 'is_open_24h']
+    list_filter   = ['is_open_24h', 'pharm_city']
+    search_fields = ['name', 'pharmacist__pharmacy_name']
 
 
 @admin.register(PharmacyOrder)

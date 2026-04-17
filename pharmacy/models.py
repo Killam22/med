@@ -4,38 +4,46 @@ from django.conf import settings
 from patients.models import Patient
 from prescriptions.models import Prescription
 from medications.models import Medication
+from users.validators import validate_file_type
 
 class Pharmacist(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pharmacist_profile')
-    license_number = models.CharField(max_length=50, unique=True)
-    pharmacy_name = models.CharField(max_length=200)
-    address = models.TextField()
-    city = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20, blank=True)
+    order_registration_number = models.CharField(max_length=100, unique=True, blank = False, help_text="Numéro d'ordre", default = "")
     is_verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Dr. {self.user.last_name} (Pharmacien)"
+
+
+class Pharmacy(models.Model):
+    pharmacist = models.OneToOneField(Pharmacist, on_delete=models.CASCADE, related_name='pharmacy')
+    name = models.CharField(max_length=200)
+    pharm_address = models.TextField()
+    pharm_city = models.CharField(max_length=100)
+    pharm_phone = models.CharField(max_length=20, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    pharmacy_license = models.FileField(upload_to='pharmacy_licenses/', null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.pharmacy_name} ({self.user.get_full_name()})"
-
-
-class PharmacyBranch(models.Model):
-    pharmacist = models.ForeignKey(Pharmacist, on_delete=models.CASCADE, related_name='branches')
-    branch_name = models.CharField(max_length=200)
-    address = models.TextField()
-    city = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20, blank=True)
     is_open_24h = models.BooleanField(default=False)
+    license_number = models.CharField(max_length=50, unique=True)
+    pharmacy_license = models.FileField(upload_to='pharmacy_licenses/', null=True, blank=False, validators=[validate_file_type])
+    def __str__(self):
+        return f"Pharmacie {self.name} - {self.pharm_city}"
+
+
+class PharmacistQualification(models.Model):
+    pharmacist = models.ForeignKey(Pharmacist, on_delete=models.CASCADE, related_name='qualifications')
+    title = models.CharField(max_length=200)
+    institution = models.CharField(max_length=200)
+    graduation_year = models.PositiveIntegerField()
+    degree_type = models.CharField(max_length=100)
+    scan = models.FileField(upload_to='pharmacist_qualifications/', validators=[validate_file_type])
 
     def __str__(self):
-        return f"{self.branch_name} - {self.pharmacist.pharmacy_name}"
-
+        return f"{self.title} - {self.pharmacist.user.last_name}"
 
 class PharmacyStock(models.Model):
     """Inventaire local de chaque pharmacie"""
-    pharmacist = models.ForeignKey(Pharmacist, on_delete=models.CASCADE, related_name='stocks')
+    pharmacy = models.ForeignKey(Pharmacy, on_delete=models.CASCADE, related_name='stocks', default = 0)
     medication = models.ForeignKey(Medication, on_delete=models.CASCADE, related_name='pharmacy_stocks')
     quantity = models.PositiveIntegerField(default=0)
     selling_price = models.DecimalField(max_digits=8, decimal_places=2, help_text="Prix de vente DZD en pharmacie")
@@ -43,10 +51,10 @@ class PharmacyStock(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('pharmacist', 'medication') # Un seul enregistrement par médicament par pharmacie
+        unique_together = ('pharmacy', 'medication') # Un seul enregistrement par médicament par pharmacie
 
     def __str__(self):
-        return f"{self.medication.name} - {self.pharmacist.pharmacy_name} ({self.quantity} en stock)"
+        return f"{self.medication.name} - {self.pharmacy.branch_name} ({self.quantity} en stock)"
 
 class PharmacyOrder(models.Model):
     """Commande envoyée par un patient à une pharmacie"""
@@ -86,13 +94,3 @@ class PharmacyOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)        
 
-class PharmacistQualification(models.Model):
-    pharmacist = models.ForeignKey(Pharmacist, on_delete=models.CASCADE, related_name='qualifications')
-    title = models.CharField(max_length=200)
-    institution = models.CharField(max_length=200)
-    graduation_year = models.PositiveIntegerField()
-    degree_type = models.CharField(max_length=100)
-    scan = models.FileField(upload_to='pharmacist_qualifications/')
-
-    def __str__(self):
-        return f"{self.title} - {self.pharmacist.user.last_name}"

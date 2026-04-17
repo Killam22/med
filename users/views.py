@@ -26,6 +26,8 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     RegisterPatientSerializer,
     RegisterDoctorSerializer,
+    RegisterPharmacistSerializer,
+    RegisterCaretakerSerializer,
     UserSerializer,
     PatientUnifiedSerializer,
 )
@@ -52,6 +54,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 # ── 2. INSCRIPTION + OTP ─────────────────────────────────────────────────────
 
+# ── 👨‍⚕️ INSCRIPTION PATIENT ─────────────────────────────────────────────────
+
 class RegisterPatientView(generics.CreateAPIView):
     """
     Crée un Patient avec is_active=False et envoie un OTP par email.
@@ -67,12 +71,49 @@ class RegisterPatientView(generics.CreateAPIView):
         send_otp_email(user.email, otp_obj.otp, purpose='register')
 
 
+# ── 🩺 INSCRIPTION DOCTEUR ─────────────────────────────────────────────────
+
 class RegisterDoctorView(generics.CreateAPIView):
     """
     Crée un Médecin avec is_active=False et envoie un OTP par email.
+    Le statut sera 'pending' en attendant la validation Admin.
     """
     queryset = User.objects.all()
     serializer_class = RegisterDoctorSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
+        send_otp_email(user.email, otp_obj.otp, purpose='register')
+
+
+# ── 💊 INSCRIPTION PHARMACIEN ──────────────────────────────────────────────
+
+class RegisterPharmacistView(generics.CreateAPIView):
+    """
+    Crée un Pharmacien et sa Pharmacie avec is_active=False.
+    Envoie un OTP par email. Statut en attente de validation Admin.
+    """
+    queryset = User.objects.all()
+    serializer_class = RegisterPharmacistSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
+        send_otp_email(user.email, otp_obj.otp, purpose='register')
+
+
+# ── 🏠 INSCRIPTION GARDE-MALADE (CARETAKER) ────────────────────────────────
+
+class RegisterCaretakerView(generics.CreateAPIView):
+    """
+    Crée un Garde-malade avec is_active=False et envoie un OTP par email.
+    Statut en attente de validation Admin.
+    """
+    queryset = User.objects.all()
+    serializer_class = RegisterCaretakerSerializer
     permission_classes = [permissions.AllowAny]
 
     def perform_create(self, serializer):
@@ -336,5 +377,49 @@ class PasswordResetConfirmView(APIView):
 
         return Response(
             {'message': 'Mot de passe réinitialisé avec succès. Vous pouvez vous connecter.'},
+            status=status.HTTP_200_OK
+        )
+class ChangePasswordView(APIView):
+    """
+    Vue pour changer le mot de passe d'un utilisateur connecté.
+    Requiert l'ancien mot de passe pour validation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+        new_password_confirm = request.data.get("new_password_confirm")
+
+        # 1. Vérification de l'ancien mot de passe (Sécurité critique)
+        if not user.check_password(old_password):
+            return Response(
+                {"old_password": ["L'ancien mot de passe est incorrect."]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Vérification de la correspondance
+        if new_password != new_password_confirm:
+            return Response(
+                {"new_password": ["Les deux nouveaux mots de passe ne correspondent pas."]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Validation de la complexité (selon tes règles dans settings.py)
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as exc:
+            return Response(
+                {"new_password": list(exc.messages)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4. Mise à jour sécurisée (hachage automatique)
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Votre mot de passe a été mis à jour avec succès."}, 
             status=status.HTTP_200_OK
         )

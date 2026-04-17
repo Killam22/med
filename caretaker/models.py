@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from users.validators import validate_file_type
 
 class Caretaker(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='caretaker_profile')
@@ -10,10 +11,10 @@ class Caretaker(models.Model):
     availability_area = models.CharField(max_length=200, blank=True)
     is_verified = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True, help_text="Visible dans les recherches des patients")
-    professional_license_number = models.CharField(max_length=100, null=True, blank=True)
+    professional_license_number = models.CharField(unique=True, max_length=100, null=True, blank=False)
     
     def __str__(self):
-        return f"Soin à domicile - {self.user.get_full_name()}"
+        return f"GM. {self.user.last_name} (Garde-Malade)"
 
 class CaretakerService(models.Model):
     caretaker = models.ForeignKey(Caretaker, on_delete=models.CASCADE, related_name='services')
@@ -68,7 +69,7 @@ class CaretakerCertificate(models.Model):
     organization = models.CharField(max_length=200)
     date_obtained = models.DateField()
     expiration_date = models.DateField(null=True, blank=True)
-    scan = models.FileField(upload_to='caretaker_certificates/')
+    scan = models.FileField(upload_to='caretaker_certificates/', validators=[validate_file_type])
 
     def __str__(self):
         return f"{self.name} - {self.caretaker.user.last_name}"

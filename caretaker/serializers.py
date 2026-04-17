@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Caretaker, CaretakerService, CareRequest, CareMessage
-from consultations.serializers import ConsultationSerializer # Pour le dossier médical
-from prescriptions.serializers import PrescriptionSerializer # Pour les ordonnances
+from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate
+from consultations.serializers import ConsultationSerializer 
+from prescriptions.serializers import PrescriptionSerializer 
 
 class CaretakerServiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -66,3 +66,8 @@ class CareRequestSerializer(serializers.ModelSerializer):
                 "medical_notes": "Accès autorisé aux antécédents et ordonnances pour le soin."
             }
         return {"access_granted": False, "message": "Accès bloqué. Demande non acceptée."}
+
+class CaretakerQualificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CaretakerCertificate
+        fields = ['id', 'title', 'institution', 'graduation_year', 'scan']

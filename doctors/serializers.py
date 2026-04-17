@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Doctor, WeeklySchedule, DayOff
+from .models import Doctor, WeeklySchedule, DayOff, DoctorQualification
 from appointments.services import get_available_slots
 
 
@@ -50,7 +50,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     gender_display = serializers.CharField(source='user.get_sex_display', read_only=True)
     gender = serializers.CharField(source='user.sex', read_only=True)
-    city = serializers.CharField(source='user.city', read_only=True)
+    est_city = serializers.CharField(source='exercise.est_city', read_only=True)
     available_slots_for_date = serializers.SerializerMethodField()
 
     class Meta:
@@ -58,7 +58,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'full_name', 'specialty', 'specialty_display',
             'gender', 'gender_display',
-            'clinic_name', 'city', 'rating', 'total_reviews',
+            'clinic_name', 'est_city', 'rating', 'total_reviews',
             'experience_years', 'consultation_fee', 'photo',
             'available_slots_for_date',
         ]
@@ -86,17 +86,16 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     available_slots = serializers.SerializerMethodField()
 
     gender = serializers.CharField(source='user.sex', required=False, allow_blank=True)
-    address = serializers.CharField(source='user.address', required=False, allow_blank=True)
-    city = serializers.CharField(source='user.city', required=False, allow_blank=True)
-    phone = serializers.CharField(source='user.phone', required=False, allow_blank=True)
-
+    est_address = serializers.CharField(source='exercise.est_address', required=False, allow_blank=True)
+    est_city = serializers.CharField(source='exercise.est_city', required=False, allow_blank=True)
+    pro_phone = serializers.CharField(source='exercise.pro_phone', required=False, allow_blank=True)
     class Meta:
         model = Doctor
         fields = [
             'id', 'email', 'first_name', 'last_name',
             'specialty', 'specialty_display', 'license_number',
             'gender',
-            'clinic_name', 'address', 'city', 'phone', 'bio',
+            'clinic_name', 'est_address', 'est_city', 'pro_phone', 'bio',
             'experience_years', 'consultation_fee', 'photo',
             'rating', 'total_reviews', 'languages',
             'is_verified', 'available_slots',
@@ -115,3 +114,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+class DoctorQualificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DoctorQualification
+        fields = ['id', 'title', 'institution', 'graduation_year', 'scan']

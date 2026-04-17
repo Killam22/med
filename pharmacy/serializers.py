@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Pharmacist, PharmacyBranch, PharmacyOrder, PharmacyStock
+from .models import Pharmacist, Pharmacy, PharmacyOrder, PharmacyStock, PharmacistQualification
 from medications.serializers import MedicationSerializer
 from prescriptions.serializers import PrescriptionSerializer, PrescriptionItemSerializer
 from prescriptions.models import Prescription
@@ -8,14 +8,12 @@ class PharmacistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pharmacist
         fields = [
-            'id', 'user', 'license_number', 'pharmacy_name', 
-            'address', 'city', 'phone', 'is_verified', 
-            'latitude', 'longitude', 'pharmacy_license'
+            'id', 'user', 'order_registration_number', 'is_verified', 
         ]
 
-class PharmacyBranchSerializer(serializers.ModelSerializer):
+class PharmacySerializer(serializers.ModelSerializer):
     class Meta:
-        model = PharmacyBranch
+        model = Pharmacy    
         fields = '__all__'
 
 class PharmacyOrderSerializer(serializers.ModelSerializer):
@@ -114,4 +112,9 @@ class PharmacyStockSerializer(serializers.ModelSerializer):
         """Validation personnalisée : un stock négatif n'est pas permis"""
         if data.get('quantity', 0) < 0:
             raise serializers.ValidationError({"quantity": "La quantité ne peut pas être négative."})
-        return data
+        return data
+
+class PharmacistQualificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PharmacistQualification   
+        fields = '__all__'
