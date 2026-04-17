@@ -4,22 +4,22 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import Pharmacist, PharmacyBranch, PharmacyOrder, PharmacyStock
+from .models import Pharmacist, PharmacyOrder, PharmacyStock , Pharmacy
 from .serializers import (
-    PharmacistSerializer, PharmacyBranchSerializer,
+    PharmacistSerializer,
     PharmacyOrderSerializer, PharmacyOrderCreateSerializer,
     PharmacyOrderStatusSerializer,
-    PharmacyStockSerializer
+    PharmacyStockSerializer, PharmacySerializer
 )
 
-class PharmacyListView(generics.ListAPIView):
+class PharmacistListView(generics.ListAPIView):
     queryset = Pharmacist.objects.all()
     serializer_class = PharmacistSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class PharmacyBranchListView(generics.ListAPIView):
-    queryset = PharmacyBranch.objects.all()
-    serializer_class = PharmacyBranchSerializer
+class PharmacyListView(generics.ListAPIView):
+    queryset = Pharmacy.objects.all()
+    serializer_class = PharmacySerializer
     permission_classes = [permissions.IsAuthenticated]
 
 

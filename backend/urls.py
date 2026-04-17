@@ -17,14 +17,14 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
 
     # ── App endpoints ───────────────────────────────────────────────────────
-    path('api/', include('users.urls')),
+    path('api/users/', include('users.urls')),
     path('api/doctors/', include('doctors.urls')),
     path('api/patients/', include('patients.urls')),
     path('api/pharmacy/', include('pharmacy.urls')),
     path('api/caretaker/', include('caretaker.urls')),
-    path('api/', include('appointments.urls')),
-    path('api/', include('consultations.urls')),
-    path('api/', include('prescriptions.urls')),
+    path('api/appointments/', include('appointments.urls')),
+    path('api/consultations/', include('consultations.urls')),
+    path('api/prescriptions/', include('prescriptions.urls')),
     path('api/medications/', include('medications.urls')),
     path('api/notifications/', include('notifications.urls')),
     path('api/dashboard/', include('dashboard.urls')),
@@ -38,4 +38,6 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] 
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
