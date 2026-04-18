@@ -31,7 +31,31 @@ from .serializers import (
     UserSerializer,
     PatientUnifiedSerializer,
 )
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            return Response(
+                {'error': 'Token invalide ou déjà révoqué.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(
+            {'message': 'Déconnexion réussie.'},
+            status=status.HTTP_200_OK
+        )
 User = get_user_model()
 
 # Sel cryptographique pour les tokens de reset (ne pas changer en prod sans invalider tous les tokens actifs)
@@ -44,7 +68,6 @@ _RESET_MAX_AGE = 600  # 10 minutes en secondes
 class LoginRateThrottle(AnonRateThrottle):
     """Limite à 5 tentatives/minute (configurer 'login' dans DEFAULT_THROTTLE_RATES)."""
     scope = 'login'
-
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Endpoint JWT enrichi (role, full_name, email) + protégé par le LoginRateThrottle."""

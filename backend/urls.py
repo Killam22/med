@@ -17,7 +17,7 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
 
     # ── App endpoints ───────────────────────────────────────────────────────
-    path('api/users/', include('users.urls')),
+
     path('api/doctors/', include('doctors.urls')),
     path('api/patients/', include('patients.urls')),
     path('api/pharmacy/', include('pharmacy.urls')),
@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/dashboard/', include('dashboard.urls')),
     path('api/admin/', include('admin_panel.urls')),
     path('api/messaging/', include('messaging.urls')),
+    path('api/settings/', include('settings.urls')),
 
     # ── DRF Browsable API ────────────────────────────────────────────────────
     path('api-auth/', include('rest_framework.urls')),

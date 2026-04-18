@@ -3,7 +3,7 @@ from .models import Patient, MedicalProfile, Antecedent, Treatment, MedicalDocum
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
-    list_display = ['user', 'get_phone', 'get_city', 'blood_group']
+    list_display = ['user', 'get_phone', 'get_city']
     search_fields = ['user__first_name', 'user__last_name', 'user__email']
     raw_id_fields = ['user']
 
