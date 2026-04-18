@@ -1,5 +1,8 @@
-from django.db.models import Q
+from django.db.models import Q, Sum
 from rest_framework import generics, permissions, viewsets, status
+from rest_framework.views import APIView
+from rest_framework.renderers import JSONRenderer
+from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -162,13 +165,20 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Un pharmacien ne voit que son propre stock
-        return PharmacyStock.objects.filter(pharmacist__user=self.request.user)
+        return PharmacyStock.objects.filter(pharmacy__pharmacist__user=self.request.user)
 
     def perform_create(self, serializer):
         from rest_framework.exceptions import PermissionDenied
         if not hasattr(self.request.user, 'pharmacist_profile'):
             raise PermissionDenied("Vous devez être pharmacien pour gérer un stock.")
-        stock = serializer.save(pharmacist=self.request.user.pharmacist_profile)
+        
+        # S'assurer que le pharmacien a bien une pharmacie enregistrée
+        try:
+            pharmacy = self.request.user.pharmacist_profile.pharmacy
+        except Exception:
+            raise PermissionDenied("Vous devez configurer votre pharmacie avant d'ajouter du stock.")
+            
+        stock = serializer.save(pharmacy=pharmacy)
         self._check_low_stock(stock)
 
     def perform_update(self, serializer):
@@ -181,7 +191,7 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
             # Nom du médicament (en supposant que stock.medication.name existe)
             med_name = getattr(stock.medication, 'name', 'ce médicament')
             Notification.objects.create(
-                user=stock.pharmacist.user,
+                user=stock.pharmacy.pharmacist.user,
                 title="Alerte Stock critique",
                 message=f"Alerte : Le stock de {med_name} est critique.",
                 notification_type=Notification.NotificationType.PHARMACY
@@ -191,27 +201,67 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
     def search_nearby(self, request):
         """Recherche de médicaments en stock selon la position du patient"""
         medication_id = request.query_params.get('medication_id')
-        lat = float(request.query_params.get('lat'))
-        lon = float(request.query_params.get('lon'))
+        lat = request.query_params.get('lat')
+        lon = request.query_params.get('lon')
 
         # Logique de proximité (Haversine simplifiée dans l'ORM)
         # On filtre les pharmacies qui ont le médicament en stock > 0
         stocks = PharmacyStock.objects.filter(
             medication_id=medication_id,
             quantity__gt=0,
-            pharmacist__latitude__isnull=False
-        ).select_related('pharmacist')
+            pharmacy__latitude__isnull=False
+        ).select_related('pharmacy')
 
-        # Note : Pour une production réelle, utilisez PostGIS. 
-        # Ici on retourne les officines filtrées.
         results = []
         for s in stocks:
             results.append({
-                "pharmacy_name": s.pharmacist.pharmacy_name,
-                "address": s.pharmacist.address,
+                "pharmacy_name": s.pharmacy.name,
+                "address": s.pharmacy.pharm_address,
                 "distance_approx": "Calculée côté client ou via PostGIS",
                 "stock_quantity": s.quantity,
                 "price": s.selling_price or s.medication.price_dzd
             })
         
         return Response(results)        
+
+class PharmacistDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    renderer_classes = [JSONRenderer]
+
+    def get(self, request):
+        if getattr(request.user, 'role', None) != 'pharmacist':
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = request.user
+        today = timezone.now().date()
+        today_orders = PharmacyOrder.objects.filter(pharmacist=user, created_at__date=today)
+        stock_alerts = PharmacyStock.objects.filter(pharmacy__pharmacist__user=user, quantity__lt=10)
+
+        revenue_dict = today_orders.filter(status='delivered').aggregate(total=Sum('total_price'))
+        today_revenue = revenue_dict['total'] or 0
+
+        data = {
+            "kpis": {
+                "today_orders": today_orders.count(),
+                "today_revenue": float(today_revenue),
+                "stock_items": PharmacyStock.objects.filter(pharmacy__pharmacist__user=user).count(),
+                "stock_alerts_count": stock_alerts.count(),
+            },
+            "priority_alerts": [
+                {
+                    "type": "stock",
+                    "message": f"{s.medication.name} - Stock critique ({s.quantity} unités)",
+                }
+                for s in stock_alerts
+            ],
+            "recent_orders": [
+                {
+                    "id": str(o.id),
+                    "patient": o.patient.get_full_name(),
+                    "status": o.status,
+                    "created_at": o.created_at,
+                }
+                for o in PharmacyOrder.objects.filter(pharmacist=user).order_by('-created_at')[:5]
+            ],
+        }
+        return Response(data)

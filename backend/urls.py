@@ -27,7 +27,6 @@ urlpatterns = [
     path('api/prescriptions/', include('prescriptions.urls')),
     path('api/medications/', include('medications.urls')),
     path('api/notifications/', include('notifications.urls')),
-    path('api/dashboard/', include('dashboard.urls')),
     path('api/admin/', include('admin_panel.urls')),
     path('api/messaging/', include('messaging.urls')),
     path('api/settings/', include('settings.urls')),

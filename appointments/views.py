@@ -3,8 +3,8 @@
 from datetime import date, timedelta
 
 from django.utils import timezone
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics, status, permissions
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
@@ -30,6 +30,7 @@ class DoctorAvailabilityView(APIView):
     GET /api/doctors/{doctor_id}/availability/?from=2025-06-16&to=2025-06-23
     No auth required — public endpoint for patients browsing.
     """
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, doctor_id):
         try:

@@ -35,7 +35,8 @@ class PrescriptionCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Prescription
-        fields = ['consultation', 'notes', 'valid_until', 'items']
+        fields = ['id', 'consultation', 'notes', 'valid_until', 'items', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')

@@ -15,30 +15,44 @@ class AdminPanelTests(APITestCase):
         # Création d'un admin
         self.admin_user = User.objects.create_superuser(
             email='admin@medsmart.com',
-            username='admin',
             password='password123',
-            role='admin'
+            role='admin',
+            first_name='Admin',
+            last_name='User',
+            id_card_number='ADMIN_CARD',
+            phone='0123456789',
+            sex='male'
         )
         
         # Création d'un utilisateur normal
         self.normal_user = User.objects.create_user(
             email='user@test.com',
-            username='user',
+            username='user@test.com',
             password='password123',
-            role='patient'
+            role='patient',
+            first_name='Normal',
+            last_name='User',
+            id_card_number='NORMAL_CARD',
+            phone='0123456789',
+            sex='male'
         )
         
         # Création d'un médecin à valider
         self.doctor_user = User.objects.create_user(
             email='doctor@test.com',
-            username='doctor',
+            username='doctor@test.com',
             password='password123',
             role='doctor',
-            is_active=True
+            is_active=True,
+            first_name='Doctor',
+            last_name='User',
+            id_card_number='DOCTOR_CARD',
+            phone='0123456789',
+            sex='male'
         )
         self.doctor_profile = Doctor.objects.create(
             user=self.doctor_user,
-            license_number='DOC123',
+            order_number='DOC123',
             practice_authorization=SimpleUploadedFile('auth.pdf', b'content', content_type='application/pdf')
         )
         DoctorQualification.objects.create(
@@ -137,3 +151,12 @@ class AdminPanelTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.doctor_user.refresh_from_db()
         self.assertTrue(self.doctor_user.is_active)
+
+    def test_admin_dashboard(self):
+        """Vérifie l'accès au tableau de bord administrateur."""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get('/api/admin/dashboard/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('kpis', response.data)
+        self.assertIn('role_distribution', response.data)
+        self.assertEqual(response.data['kpis']['total_users'], 3) # Admin, Normal, Doctor

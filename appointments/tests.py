@@ -1,95 +1,147 @@
-from datetime import timedelta
-from django.test import TestCase
+from datetime import timedelta, date, time
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from .models import Patient, Doctor, Appointment
+from rest_framework.test import APITestCase
+from rest_framework import status
+from doctors.models import Doctor, WeeklySchedule, DayOff
+from patients.models import Patient
+from .models import Appointment
 
 User = get_user_model()
 
-class AppointmentModelsTest(TestCase):
+class AppointmentAPITests(APITestCase):
 
-    def setUp(self):
-        """
-        Cette méthode s'exécute avant chaque test.
-        Elle sert à préparer des fausses données dans la base de données de test.
-        """
-        # 1. Créer un faux utilisateur et un profil Patient
-        self.user_patient = User.objects.create_user(
-            username='jean_dupont',
-            email='patient@test.com',
-            password='password123',
-            first_name='Jean',
-            last_name='Dupont',
-            date_of_birth=timezone.datetime(1990, 1, 1).date(),
-            phone='0600000000'
+    @classmethod
+    def setUpTestData(cls):
+        # 1. Création du Patient
+        cls.patient_user = User.objects.create_user(
+            username='patient1', 
+            email='patient1@test.com', 
+            password='pw', 
+            role='patient',
+            id_card_number='PAT123456'
         )
-        self.patient = Patient.objects.create(
-            user=self.user_patient
-        )
+        cls.patient = Patient.objects.create(user=cls.patient_user)
 
-        # 2. Créer un faux utilisateur et un profil Docteur
-        self.user_doctor = User.objects.create_user(
-            username='greg_house',
-            email='doctor@test.com',
-            password='password123',
-            first_name='Gregory',
-            last_name='House'
+        # 2. Création du Médecin
+        cls.doctor_user = User.objects.create_user(
+            username='doctor1', 
+            email='doctor1@test.com', 
+            password='pw', 
+            role='doctor',
+            id_card_number='DOC123456'
         )
-        self.doctor = Doctor.objects.create(
-            user=self.user_doctor,
-            specialty='general',
-            license_number='DOC12345'
+        cls.doctor = Doctor.objects.create(
+            user=cls.doctor_user, specialty='general', order_number='DOC001'
         )
 
-        # 3. Créer un rendez-vous (en se basant sur les champs date, start_time, end_time au lieu de slot)
-        tomorrow = timezone.now().date() + timedelta(days=1)
-        self.appointment = Appointment.objects.create(
-            patient=self.patient,
-            doctor=self.doctor,
-            date=tomorrow,
-            start_time='10:00:00',
-            end_time='10:30:00',
-            motif='Consultation de routine',
-            status='pending'
+        # 3. Création du Planning (WeeklySchedule)
+        # On crée un planning valide pour demain
+        cls.tomorrow = timezone.now().date() + timedelta(days=1)
+        cls.weekday = cls.tomorrow.weekday()
+        
+        WeeklySchedule.objects.create(
+            doctor=cls.doctor,
+            day_of_week=cls.weekday,
+            start_time=time(9, 0),
+            end_time=time(12, 0),
+            slot_duration=30, # Créneaux de 30 min: 09:00-09:30, 09:30-10:00, etc.
+            is_active=True
         )
 
-    def test_patient_age_calculation(self):
-        """
-        Test 1 : Vérifier que la propriété 'age' du patient calcule correctement l'âge.
-        """
-        # Né le 1er Janvier 1990
-        self.assertEqual(self.patient.age, timezone.now().year - 1990)
+        # 4. Création d'un rdv existant (pour tester annuler / confirmer)
+        cls.existing_appt = Appointment.objects.create(
+            patient=cls.patient,
+            doctor=cls.doctor,
+            date=cls.tomorrow,
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            motif='Consultation de base'
+        )
 
-    def test_appointment_confirm(self):
-        """
-        Test 2 : Vérifier que app.confirm() passe le statut à 'confirmed'
-        """
-        self.appointment.confirm()
-        self.assertEqual(self.appointment.status, 'confirmed')
+    # ── Tests Patient ────────────────────────────────────────────────────────
 
-    def test_appointment_cancel(self):
-        """
-        Test 3 : Vérifier que app.cancel() annule le rdv
-        """
-        self.appointment.cancel()
+    def test_patient_can_book_appointment(self):
+        self.client.force_authenticate(user=self.patient_user)
+        # 09:30 à 10:00 est libre (le premier créneau de 9:00 est pris par setup)
+        data = {
+            'doctor_id': self.doctor.id,
+            'date': self.tomorrow.isoformat(),
+            'start_time': '09:30:00',
+            'end_time': '10:00:00',
+            'motif': 'Mal de gorge'
+        }
+        response = self.client.post('/api/appointments/appointments/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Appointment.objects.count(), 2)
 
-        # On vérifie le changement de statut
-        self.assertEqual(self.appointment.status, 'cancelled')
+    def test_booking_conflict_returns_400(self):
+        self.client.force_authenticate(user=self.patient_user)
+        # Le créneau 09:00 à 09:30 est déjà pris par 'existing_appt'
+        data = {
+            'doctor_id': self.doctor.id,
+            'date': self.tomorrow.isoformat(),
+            'start_time': '09:00:00',
+            'end_time': '09:30:00',
+            'motif': 'Test de conflit'
+        }
+        response = self.client.post('/api/appointments/appointments/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Check if the error message is present (usually in non_field_errors for DRF validation raises)
+        # We just check the 400 occurred which means my custom validation rule in the serializer worked.
+        self.assertTrue(len(response.data) > 0)
 
-    def test_appointment_refuse(self):
-        """
-        Test 4 : Vérifier que app.refuse() refuse le rdv, enregistre la raison
-        """
-        raison = "Je suis en vacances."
-        self.appointment.refuse(reason=raison)
+    def test_patient_can_cancel_appointment(self):
+        self.client.force_authenticate(user=self.patient_user)
+        response = self.client.post(f'/api/appointments/appointments/{self.existing_appt.id}/cancel/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Vérif en BDD
+        self.existing_appt.refresh_from_db()
+        self.assertEqual(self.existing_appt.status, 'cancelled')
 
-        self.assertEqual(self.appointment.status, 'refused')
-        self.assertEqual(self.appointment.refusal_reason, raison)
+    def test_patient_list_appointments(self):
+        self.client.force_authenticate(user=self.patient_user)
+        response = self.client.get('/api/appointments/appointments/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_appointment_string_representation(self):
-        """
-        Test 5 : S'assurer que le '__str__' (l'affichage texte de l'objet) ne plante pas
-        """
-        representation = str(self.appointment)
-        self.assertIn("RDV", representation)
-        self.assertIn("House", representation)
+    # ── Tests Doctor ─────────────────────────────────────────────────────────
+
+    def test_doctor_can_confirm_appointment(self):
+        self.client.force_authenticate(user=self.doctor_user)
+        self.assertEqual(self.existing_appt.status, 'pending')
+        
+        response = self.client.post(f'/api/appointments/doctor/appointments/{self.existing_appt.id}/confirm/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        self.existing_appt.refresh_from_db()
+        self.assertEqual(self.existing_appt.status, 'confirmed')
+
+    def test_doctor_can_refuse_appointment(self):
+        self.client.force_authenticate(user=self.doctor_user)
+        response = self.client.post(f'/api/appointments/doctor/appointments/{self.existing_appt.id}/refuse/', {
+            'reason': 'Pas disponible ce moment'
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        self.existing_appt.refresh_from_db()
+        self.assertEqual(self.existing_appt.status, 'refused')
+        self.assertEqual(self.existing_appt.refusal_reason, 'Pas disponible ce moment')
+
+    def test_doctor_list_pending_appointments(self):
+        self.client.force_authenticate(user=self.doctor_user)
+        response = self.client.get('/api/appointments/doctor/appointments/pending/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    # ── Tests Utilitaires / Disponibilité ────────────────────────────────────
+    
+    def test_availability_endpoint(self):
+        """Vérifier que l'endpoint GET public ressort les créneaux libres."""
+        
+        response = self.client.get(f'/api/appointments/doctors/{self.doctor.id}/availability/?date={self.tomorrow.isoformat()}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        slots = response.data['slots']
+        # Il y a 6 créneaux theoriques entre 9h-12h. Le 1er est retiré. Donc 5 slots attendus.
+        self.assertEqual(len(slots), 5)
+        # Check either string or time object depending on serializer behavior
+        self.assertEqual(str(slots[0]['start_time']), '09:30:00')

@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'prescriptions',
     'medications',
     'notifications',
-    'dashboard',
     'admin_panel',
     'drf_spectacular',
     'messaging',
@@ -83,17 +82,20 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'meddb_malik',
+        'NAME': 'medical_db',
         'USER': 'postgres',
-        'PASSWORD': 'khaouladerbil',
+        'PASSWORD': 'malik',
         'HOST': 'localhost',
-        'PORT': '5432',
+        'PORT': '5433',
     
         },
     }
+
+
 
 
 
@@ -146,7 +148,7 @@ SPECTACULAR_SETTINGS = {
 
 # ── Simple JWT ────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

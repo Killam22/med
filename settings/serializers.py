@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from patients.models import Patient, MedicalProfile
+from patients.models import Patient
 from caretaker.models import Caretaker
 from pharmacy.models import Pharmacist, Pharmacy
 
@@ -38,45 +38,27 @@ class BaseProfileSerializer(serializers.ModelSerializer):
 # ─────────────────────────────────────────────
 # 2. PATIENT — Edit Profile
 # ─────────────────────────────────────────────
-class MedicalProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MedicalProfile
-        fields = ['weight', 'height', 'allergies', 'chronic_diseases', 'current_medications']
-
-
 class PatientProfileSerializer(BaseProfileSerializer):
     
-    medical_profile   = MedicalProfileSerializer(source='patient_profile.medical_profile', required=False)
-
     class Meta(BaseProfileSerializer.Meta):
-        fields = BaseProfileSerializer.Meta.fields + [
-             'medical_profile'
-        ]
+        pass
 
     def update(self, instance, validated_data):
-        # Pop nested data
-        patient_data        = validated_data.pop('patient_profile', {})
-        medical_profile_data = patient_data.pop('medical_profile', {})
-
         # Update base user fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Update Patient model
-        patient = instance.patient_profile
-        for attr, value in patient_data.items():
-            setattr(patient, attr, value)
-        patient.save()
-
-        # Update MedicalProfile
-        if medical_profile_data:
-            mp = patient.medical_profile
-            for attr, value in medical_profile_data.items():
-                setattr(mp, attr, value)
-            mp.save()
+        # Update Patient model if specific patient_profile data passed
+        patient_data = validated_data.pop('patient_profile', {})
+        if patient_data:
+            patient = instance.patient_profile
+            for attr, value in patient_data.items():
+                setattr(patient, attr, value)
+            patient.save()
 
         return instance
+
 
 
 # ─────────────────────────────────────────────

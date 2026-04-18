@@ -1,5 +1,7 @@
 from django.utils import timezone
-from rest_framework import generics, filters, viewsets, status
+from rest_framework import generics, filters, viewsets, status, permissions
+from rest_framework.views import APIView
+from rest_framework.renderers import JSONRenderer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -126,3 +128,51 @@ class DayOffViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(doctor=self.request.user.doctor_profile)
+
+
+class DoctorDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    renderer_classes = [JSONRenderer]
+
+    def get(self, request):
+        if getattr(request.user, 'role', None) != 'doctor':
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = request.user
+        today = timezone.now().date()
+
+        from appointments.models import Appointment
+        today_appointments = Appointment.objects.filter(doctor__user=user, date=today)
+        pending_appointments = Appointment.objects.filter(doctor__user=user, status='pending')
+
+        data = {
+            "kpis": {
+                "today_consultations": today_appointments.exclude(status='cancelled').count(),
+                "total_patients": Appointment.objects.filter(
+                    doctor__user=user
+                ).values('patient').distinct().count(),
+                "pending_requests": pending_appointments.count(),
+            },
+            "todays_schedule": [
+                {
+                    "id": str(a.id),
+                    "start_time": a.start_time.strftime('%H:%M'),
+                    "end_time": a.end_time.strftime('%H:%M'),
+                    "patient_name": a.patient.user.get_full_name(),
+                    "motif": a.motif,
+                    "status": a.status,
+                }
+                for a in today_appointments.exclude(status='cancelled').order_by('start_time')
+            ],
+            "patient_requests": [
+                {
+                    "id": str(a.id),
+                    "patient_name": a.patient.user.get_full_name(),
+                    "date": a.date.isoformat(),
+                    "start_time": a.start_time.strftime('%H:%M'),
+                    "motif": a.motif,
+                }
+                for a in pending_appointments.order_by('date')
+            ],
+        }
+        return Response(data)

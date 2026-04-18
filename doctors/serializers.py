@@ -99,7 +99,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             'clinic_name', 'est_address', 'est_city', 'pro_phone', 'bio',
             'experience_years', 'consultation_fee', 
             'rating', 'total_reviews', 'languages',
-            'is_verified', 'available_slots',
+            'is_verified', 'available_slots', 'cnas_coverage',
         ]
 
     def get_available_slots(self, obj):

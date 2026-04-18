@@ -1,4 +1,6 @@
-from rest_framework import viewsets, status, filters, generics
+from rest_framework import viewsets, status, filters, generics, permissions
+from rest_framework.views import APIView
+from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -102,3 +104,29 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         )
 
         return Response(CareMessageSerializer(message).data, status=status.HTTP_201_CREATED)
+
+class CaretakerDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    renderer_classes = [JSONRenderer]
+
+    def get(self, request):
+        if getattr(request.user, 'role', None) != 'caretaker':
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+
+        user = request.user
+        my_requests = CareRequest.objects.filter(caretaker__user=user, status='accepted')
+
+        data = {
+            "my_patients": [
+                {
+                    "name": r.patient.get_full_name(),
+                    "start_date": r.start_date,
+                    "end_date": r.end_date,
+                }
+                for r in my_requests
+            ],
+            "pending_requests": CareRequest.objects.filter(
+                caretaker__user=user, status='pending'
+            ).count(),
+        }
+        return Response(data)

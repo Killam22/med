@@ -20,7 +20,9 @@ class MessagingAPITests(TestCase):
             role='patient',
             first_name='Jean',
             last_name='Dupont',
-            phone='0600000001'
+            phone='0600000001',
+            id_card_number='CARD_PAT_1',
+            sex='male'
         )
         
         self.doctor = User.objects.create_user(
@@ -30,7 +32,9 @@ class MessagingAPITests(TestCase):
             role='doctor',
             first_name='Gregory',
             last_name='House',
-            phone='0600000002'
+            phone='0600000002',
+            id_card_number='CARD_DOC_1',
+            sex='male'
         )
         
         self.intruder = User.objects.create_user(
@@ -40,7 +44,9 @@ class MessagingAPITests(TestCase):
             role='pharmacist',
             first_name='Bad',
             last_name='Guy',
-            phone='0600000003'
+            phone='0600000003',
+            id_card_number='CARD_INTRUDER_1',
+            sex='male'
         )
 
         # Création directe d'une conversation pour gagner du temps

@@ -7,8 +7,14 @@ User = get_user_model()
 
 class NotificationTests(APITestCase):
     def setUp(self):
-        self.user1 = User.objects.create_user(username='user1', email='user1@example.com', password='password123', first_name='User', last_name='One')
-        self.user2 = User.objects.create_user(username='user2', email='user2@example.com', password='password123', first_name='User', last_name='Two')
+        self.user1 = User.objects.create_user(
+            username='user1', email='user1@example.com', password='password123', 
+            first_name='User', last_name='One', id_card_number='NOTIF_CARD_1', sex='male'
+        )
+        self.user2 = User.objects.create_user(
+            username='user2', email='user2@example.com', password='password123', 
+            first_name='User', last_name='Two', id_card_number='NOTIF_CARD_2', sex='female'
+        )
         
         # User 1 Notifications
         self.notif1 = Notification.objects.create(

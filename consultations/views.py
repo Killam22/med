@@ -9,7 +9,11 @@ class ConsultationViewSet(viewsets.ModelViewSet):
     """
     queryset = Consultation.objects.select_related('doctor__user', 'patient__user', 'appointment').all()
     serializer_class = ConsultationSerializer
-    permission_classes = [IsDoctor]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsDoctor()]
+        return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         consultation = serializer.save()

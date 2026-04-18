@@ -1,9 +1,12 @@
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from rest_framework.views import APIView
+from rest_framework.renderers import JSONRenderer
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
+from django.db.models import Count
 
 from .models import AuditLog
 from .serializers import AdminUserSerializer, AuditLogSerializer
@@ -121,3 +124,36 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['level']
+
+
+class AdminDashboardView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    renderer_classes = [JSONRenderer]
+
+    def get(self, request):
+        if getattr(request.user, 'role', None) != 'admin' and not request.user.is_superuser:
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+
+        users = User.objects.all()
+        role_counts = users.values('role').annotate(count=Count('id'))
+        distribution = {item['role']: item['count'] for item in role_counts}
+
+        from appointments.models import Appointment
+        data = {
+            "kpis": {
+                "total_users": users.count(),
+                "verified_doctors": users.filter(role='doctor', verification_status='verified').count(),
+                "active_pharmacies": users.filter(role='pharmacist').count(),
+                "total_appointments": Appointment.objects.count(),
+            },
+            "role_distribution": distribution,
+            "recent_registrations": [
+                {
+                    "name": u.get_full_name() or u.username or u.email,
+                    "role": u.role,
+                    "date": u.date_joined.date(),
+                }
+                for u in users.order_by('-date_joined')[:5]
+            ],
+        }
+        return Response(data)
