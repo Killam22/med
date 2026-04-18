@@ -4,8 +4,8 @@ from users.validators import validate_file_type
 
 class Patient(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='patient_profile')
-    blood_group = models.CharField(max_length=5, blank=True) 
-    emergency_contact = models.CharField(max_length=255, blank=True, null=True)
+
+    
     def __str__(self):
         return f"{self.user.get_full_name()} (Patient)"
 
@@ -26,6 +26,9 @@ class MedicalProfile(models.Model):
     allergies = models.TextField(blank=True)
     chronic_diseases = models.TextField(blank=True)
     current_medications = models.TextField(blank=True)
+    blood_group = models.CharField(max_length=5, blank=True) 
+    emergency_contact = models.CharField(max_length=255, blank=True, null=True)
+
 
     def __str__(self):
         return f"Profil Médical - {self.patient}"
