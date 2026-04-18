@@ -6,12 +6,15 @@ from django.conf import settings
  
 
 class CustomUserManager(UserManager):
-    def create_superuser(self, username, email=None, password=None, **extra_fields):
+    def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('role', 'admin')  # ← force admin role
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return super().create_superuser(username, email, password, **extra_fields)
-
+        extra_fields.setdefault('is_active', True)
+        
+        # Le model hérite d'AbstractUser qui nécessite techniquement un 'username'
+        # On utilise l'email comme username
+        return super().create_superuser(username=email, email=email, password=password, **extra_fields)
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
@@ -42,7 +45,7 @@ class CustomUser(AbstractUser):
     sex               = models.CharField(max_length=10, choices=SEX_CHOICES, blank=False)
     date_of_birth     = models.DateField(null=True, blank=False)
     phone             = models.CharField(max_length=10, blank=False)
-    id_card_number = models.CharField(max_length=50, blank=False)
+    id_card_number = models.CharField(max_length=50, blank=False, unique=True)
     id_card_recto = models.ImageField(upload_to='id_cards/', null=True, blank=False)
     id_card_verso = models.ImageField(upload_to='id_cards/', null=True, blank=False)
     photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)

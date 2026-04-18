@@ -6,6 +6,7 @@ from .views import (
     DoctorProfileView,
     WeeklyScheduleViewSet,
     DayOffViewSet,
+    AddQualificationView,
 )
 
 # Router pour les ViewSets du planning
@@ -24,4 +25,5 @@ urlpatterns = [
     path('<int:pk>/',     DoctorDetailView.as_view(),  name='doctor_detail'),
     # Own profile       → /api/doctors/profile/
     path('profile/',     DoctorProfileView.as_view(),  name='doctor_profile'),
+    path('qualifications/add/', AddQualificationView.as_view(), name='add-qualification'),
 ]

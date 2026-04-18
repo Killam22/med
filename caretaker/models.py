@@ -11,8 +11,9 @@ class Caretaker(models.Model):
     availability_area = models.CharField(max_length=200, blank=True)
     is_verified = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True, help_text="Visible dans les recherches des patients")
-    professional_license_number = models.CharField(unique=True, max_length=100, null=True, blank=False)
-    
+    criminal_record_scan = models.FileField(upload_to='caretaker_records/', validators=[validate_file_type], null=True, blank=False) 
+    tarif_de_base = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
     def __str__(self):
         return f"GM. {self.user.last_name} (Garde-Malade)"
 

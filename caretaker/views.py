@@ -1,9 +1,11 @@
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Caretaker, CareRequest, CareMessage
-from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate
+from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer
 
 class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
     """API pour les patients : Rechercher et filtrer les gardes-malades"""
@@ -15,6 +17,16 @@ class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['availability_area', 'experience_years']
     # Recherche textuelle (ex: chercher une spécialité dans la bio)
     search_fields = ['bio', 'certification', 'user__first_name', 'user__last_name']
+
+class AddCertificateView(generics.CreateAPIView):
+    queryset = CaretakerCertificate.objects.all()
+    serializer_class = CaretakerCertificateSerializer
+    # C'est cette ligne qui permet à Django de lire les fichiers Form-Data
+    parser_classes = (MultiPartParser, FormParser)    
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(caretaker=self.request.user.caretaker_profile)
 
 class CareRequestViewSet(viewsets.ModelViewSet):
     """API pour gérer les offres d'emploi et les contrats"""

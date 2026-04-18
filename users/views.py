@@ -189,7 +189,21 @@ class VerifyRegisterOTPView(APIView):
             'role': user.role,
             'email': user.email,
         }, status=status.HTTP_200_OK)
+#--- LOGOUT----------
 
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            # Le Front-End doit envoyer le 'refresh_token' dans le corps de la requête
+            refresh_token = request.data["refresh_token"]
+            token = RefreshToken(refresh_token)
+            token.blacklist() # Invalide définitivement le token
+
+            return Response({"message": "Déconnexion réussie."}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({"erreur": "Token invalide ou manquant."}, status=status.HTTP_400_BAD_REQUEST)
 
 # ── 3. PROFIL "CAMÉLÉON" ─────────────────────────────────────────────────────
 

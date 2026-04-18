@@ -10,6 +10,7 @@ class Pharmacist(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pharmacist_profile')
     order_registration_number = models.CharField(max_length=100, unique=True, blank = False, help_text="Numéro d'ordre", default = "")
     is_verified = models.BooleanField(default=False)
+    cnas_coverage = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Dr. {self.user.last_name} (Pharmacien)"
@@ -24,8 +25,9 @@ class Pharmacy(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     is_open_24h = models.BooleanField(default=False)
-    license_number = models.CharField(max_length=50, unique=True)
-    pharmacy_license = models.FileField(upload_to='pharmacy_licenses/', null=True, blank=False, validators=[validate_file_type])
+    agreement_number = models.CharField(max_length=50, unique=True)
+    agreement_scan = models.FileField(upload_to='agreement_scans/', null=True, blank=False, validators=[validate_file_type])
+    registre_commerce = models.FileField(upload_to='registre_commerce/', null=True, blank=False, validators=[validate_file_type])
     def __str__(self):
         return f"Pharmacie {self.name} - {self.pharm_city}"
 

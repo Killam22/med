@@ -14,7 +14,7 @@ class CaretakerProfileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Caretaker
-        fields = ['id', 'full_name', 'certification', 'experience_years', 'bio', 'availability_area', 'is_verified', 'is_available', 'services']
+        fields = ['id', 'full_name', 'certification', 'experience_years', 'bio', 'availability_area', 'is_verified', 'is_available', 'services', 'tarif_de_base']
 
 class CareMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
@@ -67,7 +67,7 @@ class CareRequestSerializer(serializers.ModelSerializer):
             }
         return {"access_granted": False, "message": "Accès bloqué. Demande non acceptée."}
 
-class CaretakerQualificationSerializer(serializers.ModelSerializer):
+class CaretakerCertificateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaretakerCertificate
-        fields = ['id', 'title', 'institution', 'graduation_year', 'scan']
+        fields = ['name', 'organization', 'date_obtained', 'expiration_date','scan']     

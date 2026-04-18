@@ -94,32 +94,26 @@ class RegisterPatientSerializer(RegisterUserSerializer):
 
 class RegisterDoctorSerializer(RegisterUserSerializer):
     specialty = serializers.CharField(write_only=True)
-    license_number = serializers.CharField(write_only=True)
+    order_number = serializers.CharField(write_only=True)
     practice_authorization = serializers.FileField(write_only=True)
-    diploma_title = serializers.CharField(write_only=True)
-    diploma_institution = serializers.CharField(write_only=True)
-    diploma_year = serializers.IntegerField(write_only=True)
-    diploma_type = serializers.CharField(write_only=True)
-    diploma_scan = serializers.FileField(write_only=True)
+    experience_years = serializers.IntegerField(write_only=True)
+    clinic_name = serializers.CharField(write_only=True)
+    cnas_coverage = serializers.BooleanField(write_only=True)
 
     class Meta(RegisterUserSerializer.Meta):
         fields = RegisterUserSerializer.Meta.fields + [
-            'specialty', 'license_number', 'practice_authorization',
-            'diploma_title', 'diploma_institution', 'diploma_year', 'diploma_type', 'diploma_scan'
+            'specialty', 'order_number', 'practice_authorization',
+            'experience_years', 'clinic_name', 'cnas_coverage'
         ]
 
     @transaction.atomic
     def create(self, validated_data):
         spec = validated_data.pop('specialty')
-        lic = validated_data.pop('license_number')
+        order = validated_data.pop('order_number')
         practice_auth = validated_data.pop('practice_authorization')
-        qualif_data = {
-            'title': validated_data.pop('diploma_title'),
-            'institution': validated_data.pop('diploma_institution'),
-            'graduation_year': validated_data.pop('diploma_year'),   # ← nom réel du modèle
-            'degree_type': validated_data.pop('diploma_type'),       # ← nom réel du modèle
-            'scan': validated_data.pop('diploma_scan')
-        }
+        exp_years = validated_data.pop('experience_years')
+        clinic = validated_data.pop('clinic_name')
+        cnas = validated_data.pop('cnas_coverage')
         validated_data['role'] = 'doctor'
         validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False  
@@ -127,82 +121,70 @@ class RegisterDoctorSerializer(RegisterUserSerializer):
         doctor_profile = Doctor.objects.create(
             user=user,
             specialty=spec,
-            license_number=lic,
-            practice_authorization=practice_auth
+            order_number=order,
+            practice_authorization=practice_auth,
+            experience_years=exp_years,
+            clinic_name=clinic,
+            cnas_coverage=cnas
         )
-        DoctorQualification.objects.create(doctor=doctor_profile, **qualif_data)
         return user
 
 
+
 class RegisterPharmacistSerializer(RegisterUserSerializer):
+    #pharmacien
     order_registration_number = serializers.CharField(write_only=True)
-    # Pharmacie
-    pharmacy_name = serializers.CharField(write_only=True)
-    pharmacy_license_number = serializers.CharField(write_only=True)
-    pharmacy_license = serializers.FileField(write_only=True)
-    # Diplôme (identique à DoctorQualification)
-    diploma_title = serializers.CharField(write_only=True)
-    diploma_institution = serializers.CharField(write_only=True)
-    diploma_year = serializers.IntegerField(write_only=True)
-    diploma_type = serializers.CharField(write_only=True)
-    diploma_scan = serializers.FileField(write_only=True)
+    cnas_coverage = serializers.BooleanField(write_only=True)
+    #pharmacie
+    name = serializers.CharField(write_only=True)
+    agreement_number = serializers.CharField(write_only=True)
+    agreement_scan = serializers.FileField(write_only=True)
+    registre_commerce = serializers.FileField(write_only=True)
+    
 
     class Meta(RegisterUserSerializer.Meta):
         fields = RegisterUserSerializer.Meta.fields + [
             'order_registration_number',
-            'pharmacy_name', 'pharmacy_license_number', 'pharmacy_license',
-            'diploma_title', 'diploma_institution', 'diploma_year', 'diploma_type', 'diploma_scan',
+            'name', 'agreement_number', 'agreement_scan', 'registre_commerce', 'cnas_coverage',
         ]
 
     @transaction.atomic
     def create(self, validated_data):
         order_reg_num = validated_data.pop('order_registration_number')
+        cnas = validated_data.pop('cnas_coverage')
         pharmacy_data = {
-            'name': validated_data.pop('pharmacy_name'),
-            'license_number': validated_data.pop('pharmacy_license_number'),
-            'pharmacy_license': validated_data.pop('pharmacy_license'),
-            'pharm_address': validated_data.get('address'),
-            'pharm_city': validated_data.get('city'),
+            'name': validated_data.pop('name'),
+            'agreement_number': validated_data.pop('agreement_number'),
+            'agreement_scan': validated_data.pop('agreement_scan'),
+            'registre_commerce': validated_data.pop('registre_commerce'),
         }
-        qualif_data = {
-            'title': validated_data.pop('diploma_title'),
-            'institution': validated_data.pop('diploma_institution'),
-            'graduation_year': validated_data.pop('diploma_year'),
-            'degree_type': validated_data.pop('diploma_type'),
-            'scan': validated_data.pop('diploma_scan'),
-        }
+
         validated_data['role'] = 'pharmacist'
         validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False
 
         user = super().create(validated_data)
-        pharmacist_profile = Pharmacist.objects.create(user=user, order_registration_number=order_reg_num)
+        pharmacist_profile = Pharmacist.objects.create(user=user, order_registration_number=order_reg_num, cnas_coverage=cnas)
         Pharmacy.objects.create(pharmacist=pharmacist_profile, **pharmacy_data)
-        PharmacistQualification.objects.create(pharmacist=pharmacist_profile, **qualif_data)
         return user
 
 
+
 class RegisterCaretakerSerializer(RegisterUserSerializer):
-    professional_license_number = serializers.CharField(write_only=True)
-    cert_title = serializers.CharField(write_only=True)
-    cert_organization = serializers.CharField(write_only=True)
-    cert_date_obtained = serializers.DateField(write_only=True)
-    cert_expiration_date = serializers.DateField(write_only=True)
-    cert_scan = serializers.FileField(write_only=True)
+    criminal_record_scan = serializers.FileField(write_only=True)
+    availability_area = serializers.CharField(write_only=True)
+    experience_years = serializers.IntegerField(write_only=True)
+    tarif_de_base = serializers.DecimalField(max_digits=10, decimal_places=2, write_only=True)
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields + ['professional_license_number', 'cert_title', 'cert_organization', 'cert_date_obtained', 'cert_expiration_date', 'cert_scan']
+        fields = RegisterUserSerializer.Meta.fields + ['criminal_record_scan','availability_area', 'experience_years', 'tarif_de_base']
 
     @transaction.atomic
     def create(self, validated_data):
-        license_number = validated_data.pop('professional_license_number')
-        cert_data = {
-            'name': validated_data.pop('cert_title'),           # ← nom réel du modèle CaretakerCertificate
-            'organization': validated_data.pop('cert_organization'),
-            'date_obtained': validated_data.pop('cert_date_obtained'),
-            'expiration_date': validated_data.pop('cert_expiration_date'),
-            'scan': validated_data.pop('cert_scan')
-        }
+        criminal_record_scan = validated_data.pop('criminal_record_scan')
+        availability_area = validated_data.pop('availability_area')
+        experience_years = validated_data.pop('experience_years')
+        tarif_de_base = validated_data.pop('tarif_de_base')
         validated_data['role'] = 'caretaker'
         validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False
@@ -210,9 +192,11 @@ class RegisterCaretakerSerializer(RegisterUserSerializer):
         user = super().create(validated_data)
         caretaker_profile = Caretaker.objects.create(
             user=user,
-            professional_license_number=license_number  # ← nom réel du modèle Caretaker
+            criminal_record_scan=criminal_record_scan,
+            availability_area=availability_area,
+            experience_years=experience_years,
+            tarif_de_base=tarif_de_base
         )
-        CaretakerCertificate.objects.create(caretaker=caretaker_profile, **cert_data)
         return user
 
 

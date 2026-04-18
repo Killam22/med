@@ -8,7 +8,7 @@ class PharmacistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pharmacist
         fields = [
-            'id', 'user', 'order_registration_number', 'is_verified', 
+            'id', 'user', 'order_registration_number', 'is_verified', 'cnas_coverage',
         ]
 
 class PharmacySerializer(serializers.ModelSerializer):
@@ -102,19 +102,19 @@ class PharmacyStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = PharmacyStock
         fields = [
-            'id', 'pharmacist', 'medication', 'medication_details', 
+            'id', 'pharmacy', 'medication', 'medication_details', 
             'quantity', 'selling_price', 'expiry_date', 
             'last_updated'
         ]
-        read_only_fields = ['pharmacist']
+        read_only_fields = ['pharmacy']
         
     def validate(self, data):
         """Validation personnalisée : un stock négatif n'est pas permis"""
         if data.get('quantity', 0) < 0:
             raise serializers.ValidationError({"quantity": "La quantité ne peut pas être négative."})
         return data
-
 class PharmacistQualificationSerializer(serializers.ModelSerializer):
+
     class Meta:
-        model = PharmacistQualification   
-        fields = '__all__'
+        model = PharmacistQualification
+        fields = ['title', 'institution', 'graduation_year', 'degree_type', 'scan']     

@@ -3,13 +3,14 @@ from rest_framework import generics, permissions, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Pharmacist, PharmacyOrder, PharmacyStock , Pharmacy
+from .models import Pharmacist, PharmacyOrder, PharmacyStock , Pharmacy, PharmacistQualification
 from .serializers import (
     PharmacistSerializer,
     PharmacyOrderSerializer, PharmacyOrderCreateSerializer,
     PharmacyOrderStatusSerializer,
-    PharmacyStockSerializer, PharmacySerializer
+    PharmacyStockSerializer, PharmacySerializer, PharmacistQualificationSerializer
 )
 
 class PharmacistListView(generics.ListAPIView):
@@ -22,6 +23,15 @@ class PharmacyListView(generics.ListAPIView):
     serializer_class = PharmacySerializer
     permission_classes = [permissions.IsAuthenticated]
 
+class AddQualificationView(generics.CreateAPIView):
+    queryset = PharmacistQualification.objects.all()
+    serializer_class = PharmacistQualificationSerializer
+    # C'est cette ligne qui permet à Django de lire les fichiers Form-Data
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(pharmacist=self.request.user.pharmacist_profile)
 
 class PharmacyOrderViewSet(viewsets.ModelViewSet):
     """

@@ -22,7 +22,7 @@ class Doctor(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='doctor_profile')
     specialty = models.CharField(max_length=50, choices=SPECIALTY_CHOICES, blank=False)
-    license_number = models.CharField(max_length=50, unique=True, blank=False)
+    order_number = models.CharField(max_length=50, unique=True, blank=False)
     practice_authorization = models.FileField(upload_to='doctor_authorizations/', null=True, blank=False, validators=[validate_file_type])
     clinic_name = models.CharField(max_length=200, blank=True)
     experience_years = models.PositiveIntegerField(default=0)
@@ -32,6 +32,7 @@ class Doctor(models.Model):
     total_reviews = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=False)
     languages = models.CharField(max_length=200, blank=True, help_text="Ex: Français, Arabe, Anglais")
+    cnas_coverage = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Dr. {self.user.get_full_name()}"

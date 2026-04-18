@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     # Auth JWT
     CustomTokenObtainPairView,
+    LogoutView,
     
     # Inscriptions par rôle
     RegisterPatientView,
@@ -29,6 +30,7 @@ urlpatterns = [
     # ── 🔐 Authentification (JWT avec Rate Limiting) ───────────────────────────
     path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('refresh/', TokenRefreshView.as_view(), name='refresh'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
     # ── 📝 Inscriptions (Création de profil + Envoi auto de l'OTP) ────────────
     path('register/patient/', RegisterPatientView.as_view(), name='register_patient'),

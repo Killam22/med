@@ -3,11 +3,12 @@ from rest_framework import generics, filters, viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Doctor, WeeklySchedule, DayOff
+from .models import Doctor, WeeklySchedule, DayOff, DoctorQualification
 from .serializers import (
     DoctorListSerializer, DoctorDetailSerializer,
-    WeeklyScheduleSerializer, DayOffSerializer,
+    WeeklyScheduleSerializer, DayOffSerializer, DocQualificationSerializer
 )
 from .filters import DoctorFilter
 from appointments.permissions import IsDoctor
@@ -46,7 +47,14 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user.doctor_profile
 
+class AddQualificationView(generics.CreateAPIView):
+    queryset = DoctorQualification.objects.all()
+    serializer_class = DocQualificationSerializer
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save(doctor=self.request.user.doctor_profile)
 # ── Doctor Schedule Management ────────────────────────────────────────────────────
 
 class WeeklyScheduleViewSet(viewsets.ModelViewSet):

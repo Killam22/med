@@ -59,7 +59,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'specialty', 'specialty_display',
             'gender', 'gender_display',
             'clinic_name', 'est_city', 'rating', 'total_reviews',
-            'experience_years', 'consultation_fee', 'photo',
+            'experience_years', 'consultation_fee',
             'available_slots_for_date',
         ]
 
@@ -84,6 +84,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     available_slots = serializers.SerializerMethodField()
+    cnas_coverage = serializers.BooleanField(source='doctor.cnas_coverage', read_only=True)
 
     gender = serializers.CharField(source='user.sex', required=False, allow_blank=True)
     est_address = serializers.CharField(source='exercise.est_address', required=False, allow_blank=True)
@@ -93,10 +94,10 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
         model = Doctor
         fields = [
             'id', 'email', 'first_name', 'last_name',
-            'specialty', 'specialty_display', 'license_number',
+            'specialty', 'specialty_display', 'order_number',
             'gender',
             'clinic_name', 'est_address', 'est_city', 'pro_phone', 'bio',
-            'experience_years', 'consultation_fee', 'photo',
+            'experience_years', 'consultation_fee', 
             'rating', 'total_reviews', 'languages',
             'is_verified', 'available_slots',
         ]
@@ -114,7 +115,10 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
-class DoctorQualificationSerializer(serializers.ModelSerializer):
+
+
+class DocQualificationSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = DoctorQualification
-        fields = ['id', 'title', 'institution', 'graduation_year', 'scan']
+        fields = ['title', 'institution', 'graduation_year', 'degree_type', 'scan']        

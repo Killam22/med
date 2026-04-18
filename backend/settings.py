@@ -145,7 +145,7 @@ SPECTACULAR_SETTINGS = {
 
 # ── Simple JWT ────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=10),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -170,12 +170,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'medicalsmartapp@gmail.com'
-EMAIL_HOST_PASSWORD = 'yarvxitxohgcjkwo'  # <-- use the 16-char app password
+EMAIL_HOST_PASSWORD = 'yarvxitxohgcjkwo'
 DEFAULT_FROM_EMAIL = 'medicalsmartapp@gmail.com'
 
 # ── Cache (pour les throttles en test et en dev) ──────────────────────────────
