@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'admin_panel',
     'drf_spectacular',
     'messaging',
+    'settings'
     ]
 
 # ── Middleware ───────────────────────────────────────────────────────────────
@@ -85,11 +86,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'medical_db',
+        'NAME': 'meddb_malik',
         'USER': 'postgres',
-        'PASSWORD': 'malik',
+        'PASSWORD': 'khaouladerbil',
         'HOST': 'localhost',
-        'PORT': '5433',
+        'PORT': '5432',
     
         },
     }
@@ -170,7 +171,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
