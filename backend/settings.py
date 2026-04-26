@@ -2,16 +2,26 @@
 Django settings for appointment_backend project.
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
+# Charge back/.env (BASE_DIR pointe sur back/)
+load_dotenv(BASE_DIR / '.env')
 
-DEBUG = False  
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-change-this-in-production-use-env-variable',
+)
 
-ALLOWED_HOSTS = ['*']
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()
+]
 
 # ── Installed Apps ──────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -86,14 +96,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'medical_db',
-        'USER': 'postgres',
-        'PASSWORD': 'malik',
-        'HOST': 'localhost',
-        'PORT': '5433',
-    
-        },
-    }
+        'NAME': os.environ.get('DB_NAME', 'medical_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
+    },
+}
 
 
 
@@ -173,13 +182,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
+# Mode console pour le dev — les OTP s'affichent dans le terminal Django.
+# Pour basculer en SMTP réel : remplacer par 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'medicalsmartapp@gmail.com'
-EMAIL_HOST_PASSWORD = 'yarvxitxohgcjkwo'
-DEFAULT_FROM_EMAIL = 'medicalsmartapp@gmail.com'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@medsmart.dz')
 
 # ── Cache (pour les throttles en test et en dev) ──────────────────────────────
 CACHES = {

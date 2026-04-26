@@ -83,6 +83,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     Utilisé en GET /api/appointments/ et GET /api/appointments/{id}/
     Visible par le patient — pas de refusal_reason.
     """
+    doctor_id        = serializers.IntegerField(source='doctor.id', read_only=True)
     doctor_name      = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
     doctor_specialty = serializers.CharField(source='doctor.specialty', read_only=True)
     patient_name     = serializers.CharField(source='patient.user.get_full_name', read_only=True)
@@ -94,6 +95,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         model  = Appointment
         fields = [
             'id',
+            'doctor_id',
             'doctor_name',
             'doctor_specialty',
             'patient_name',

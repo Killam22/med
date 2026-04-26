@@ -23,6 +23,11 @@ urlpatterns = [
     path('api/pharmacy/', include('pharmacy.urls')),
     path('api/caretaker/', include('caretaker.urls')),
     path('api/appointments/', include('appointments.urls')),
+    # Les routes internes d'appointments/urls.py incluent aussi
+    # "doctor/..." et "doctors/<id>/availability/" que le frontend attend
+    # à la racine /api/ (sans le préfixe /appointments/). On remonte donc
+    # le même URLconf à la racine pour exposer ces chemins.
+    path('api/', include('appointments.urls')),
     path('api/consultations/', include('consultations.urls')),
     path('api/prescriptions/', include('prescriptions.urls')),
     path('api/medications/', include('medications.urls')),

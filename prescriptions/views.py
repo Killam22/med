@@ -167,6 +167,91 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
         })
 
 
+class QuickPrescriptionView(APIView):
+    """
+    POST /api/prescriptions/quick/
+    Médecin : crée une ordonnance "rapide" sans rendez-vous parent en générant
+    automatiquement une consultation détachée.
+
+    Body :
+    {
+      "patient_id": <int>,
+      "chief_complaint": "Renouvellement",
+      "notes": "...",
+      "valid_until": "2026-07-30",   # optionnel
+      "items": [
+        {"drug_name": "Metformin", "dosage": "500mg", "frequency": "2x_day", "duration": "30 jours"}
+      ]
+    }
+    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    def post(self, request):
+        from datetime import timedelta
+        from django.utils import timezone
+        from consultations.models import Consultation
+        from patients.models import Patient
+        from notifications.models import Notification
+
+        patient_id = request.data.get('patient_id')
+        items_data = request.data.get('items') or []
+        if not patient_id:
+            return Response({'error': 'patient_id est requis.'}, status=400)
+        if not items_data:
+            return Response({'error': 'Au moins un médicament est requis.'}, status=400)
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({'error': 'Patient introuvable.'}, status=404)
+
+        doctor = request.user.doctor_profile
+        chief = request.data.get('chief_complaint') or 'Ordonnance rapide'
+        notes = request.data.get('notes') or ''
+        valid_until = request.data.get('valid_until')
+        if not valid_until:
+            valid_until = (timezone.now().date() + timedelta(days=90)).isoformat()
+
+        consultation = Consultation.objects.create(
+            doctor=doctor,
+            patient=patient,
+            consultation_type=Consultation.ConsultationType.IN_PERSON,
+            status=Consultation.Status.COMPLETED,
+            chief_complaint=chief,
+            consulted_at=timezone.now(),
+        )
+
+        prescription = Prescription.objects.create(
+            consultation=consultation,
+            notes=notes,
+            valid_until=valid_until,
+        )
+
+        from .models import PrescriptionItem, QRToken
+        for it in items_data:
+            PrescriptionItem.objects.create(
+                prescription=prescription,
+                drug_name=it.get('drug_name', '') or it.get('medication', ''),
+                molecule=it.get('molecule', ''),
+                dosage=it.get('dosage', ''),
+                frequency=it.get('frequency', '1x_day'),
+                duration=it.get('duration', ''),
+                instructions=it.get('instructions', ''),
+                quantity=int(it.get('quantity', 1)),
+            )
+
+        # QR token + notification patient
+        QRToken.objects.create(prescription=prescription)
+        Notification.objects.create(
+            user=patient.user,
+            title="Nouvelle ordonnance",
+            message=f"Le Dr. {doctor.user.last_name} vient de vous délivrer une ordonnance.",
+            notification_type=Notification.NotificationType.SYSTEM,
+        )
+
+        return Response(PrescriptionSerializer(prescription).data, status=status.HTTP_201_CREATED)
+
+
 class QRScanView(APIView):
     """
     POST /api/prescriptions/scan/
@@ -215,11 +300,15 @@ class QRImageView(APIView):
     Retourne directement l'image QR en PNG — affichable dans un <img> ou navigateur.
     Bypasse le content-negotiation DRF qui forcerait un rendu JSON.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsPrescriptionOwner]
+    renderer_classes = [] # Bypasser les renderers DRF pour envoyer du brut
 
     def get(self, request, pk):
+        print(f"DEBUG: QRImageView pour {pk}")
         from .models import Prescription
         prescription = get_object_or_404(Prescription, pk=pk)
+        self.check_object_permissions(request, prescription)
+        
         qr_token = getattr(prescription, 'qr_token', None)
         if not qr_token:
             return HttpResponse("QR token introuvable.", status=404, content_type="text/plain")
@@ -234,14 +323,20 @@ class PrescriptionPDFView(APIView):
     GET /api/prescriptions/{uuid}/pdf-download/
     Retourne directement le PDF — téléchargeable dans le navigateur.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsPrescriptionOwner]
 
     def get(self, request, pk):
         from .models import Prescription
         prescription = get_object_or_404(Prescription, pk=pk)
-        pdf_bytes = PDFService.generate(prescription)
-        response  = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = (
-            f'inline; filename="ordonnance-{str(prescription.id)[:8]}.pdf"'
-        )
-        return response
+        self.check_object_permissions(request, prescription)
+        
+        try:
+            pdf_bytes = PDFService.generate(prescription)
+            response  = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = (
+                f'attachment; filename="ordonnance-{str(prescription.id)[:8]}.pdf"'
+            )
+            return response
+        except Exception as e:
+            print(f"DEBUG ERROR PDF: {e}")
+            return HttpResponse(f"Erreur génération PDF: {e}", status=500)

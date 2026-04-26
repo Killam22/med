@@ -11,8 +11,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'full_name', 'email', 'role', 'is_active', 
-            'verification_status', 'date_joined', 'submitted_documents'
+            'id', 'full_name', 'first_name', 'last_name', 'email', 'role',
+            'is_active', 'verification_status', 'date_joined',
+            'submitted_documents', 'phone', 'wilaya',
         ]
 
     def get_submitted_documents(self, obj):

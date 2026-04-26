@@ -34,6 +34,7 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
         """Bouton 'Approuver' sur la liste d'attente"""
         user = self.get_object()
         user.verification_status = 'verified'
+        user.is_active = True
         user.save()
 
         # Synchronisation du booléen sur le profil spécifique pour la visibilité
@@ -139,12 +140,25 @@ class AdminDashboardView(APIView):
         distribution = {item['role']: item['count'] for item in role_counts}
 
         from appointments.models import Appointment
+        from django.utils import timezone
+
+        today = timezone.now().date()
+
         data = {
             "kpis": {
                 "total_users": users.count(),
+                "total_patients": users.filter(role='patient').count(),
+                "total_doctors": users.filter(role='doctor').count(),
+                "total_pharmacists": users.filter(role='pharmacist').count(),
+                "total_caretakers": users.filter(role='caretaker').count(),
                 "verified_doctors": users.filter(role='doctor', verification_status='verified').count(),
                 "active_pharmacies": users.filter(role='pharmacist').count(),
+                "pending_validations": users.filter(
+                    role__in=['doctor', 'pharmacist', 'caretaker'],
+                    verification_status='pending'
+                ).count(),
                 "total_appointments": Appointment.objects.count(),
+                "appointments_today": Appointment.objects.filter(date=today).count(),
             },
             "role_distribution": distribution,
             "recent_registrations": [
@@ -157,3 +171,4 @@ class AdminDashboardView(APIView):
             ],
         }
         return Response(data)
+

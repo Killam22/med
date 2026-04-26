@@ -34,3 +34,34 @@ def send_otp_email(email, otp, purpose):
         recipient_list=[email],
         fail_silently=False,
     )
+
+
+ROLE_LABELS = {
+    'doctor': 'Médecin',
+    'pharmacist': 'Pharmacien',
+    'caretaker': 'Garde-malade',
+}
+
+
+def notify_admins_new_registration(user):
+    """
+    Crée une Notification pour chaque admin afin de signaler une nouvelle
+    inscription professionnelle en attente de validation.
+    """
+    from django.contrib.auth import get_user_model
+    from notifications.models import Notification
+
+    User = get_user_model()
+    role_label = ROLE_LABELS.get(user.role, user.role)
+    full_name = user.get_full_name() or user.email
+
+    admins = User.objects.filter(role='admin', is_active=True)
+    Notification.objects.bulk_create([
+        Notification(
+            user=admin,
+            title="Nouvelle inscription à valider",
+            message=f"{role_label} : {full_name} ({user.email}) a soumis une demande d'inscription.",
+            notification_type=Notification.NotificationType.SYSTEM,
+        )
+        for admin in admins
+    ])

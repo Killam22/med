@@ -21,7 +21,7 @@ from django.core.exceptions import ValidationError
 from django.core import signing
 
 from .models import EmailOTP
-from .utils import send_otp_email
+from .utils import send_otp_email, notify_admins_new_registration
 from .serializers import (
     CustomTokenObtainPairSerializer,
     RegisterPatientSerializer,
@@ -109,6 +109,7 @@ class RegisterDoctorView(generics.CreateAPIView):
         user = serializer.save()
         otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
         send_otp_email(user.email, otp_obj.otp, purpose='register')
+        notify_admins_new_registration(user)
 
 
 # ── 💊 INSCRIPTION PHARMACIEN ──────────────────────────────────────────────
@@ -126,6 +127,7 @@ class RegisterPharmacistView(generics.CreateAPIView):
         user = serializer.save()
         otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
         send_otp_email(user.email, otp_obj.otp, purpose='register')
+        notify_admins_new_registration(user)
 
 
 # ── 🏠 INSCRIPTION GARDE-MALADE (CARETAKER) ────────────────────────────────
@@ -143,6 +145,7 @@ class RegisterCaretakerView(generics.CreateAPIView):
         user = serializer.save()
         otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
         send_otp_email(user.email, otp_obj.otp, purpose='register')
+        notify_admins_new_registration(user)
 
 
 class VerifyRegisterOTPView(APIView):

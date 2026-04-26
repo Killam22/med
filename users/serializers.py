@@ -78,17 +78,27 @@ class RegisterUserSerializer(serializers.ModelSerializer):
 # ── 🏥 Inscriptions Spécifiques (Création des profils) ─────────────────────────
 
 class RegisterPatientSerializer(RegisterUserSerializer):
+    # Champ optionnel — stocké dans MedicalProfile, pas sur User.
+    blood_group = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields 
+        fields = RegisterUserSerializer.Meta.fields + ['blood_group']
 
     def create(self, validated_data):
+        blood_group = validated_data.pop('blood_group', '') or ''
         validated_data['role'] = 'patient'
         validated_data['verification_status'] = 'verified'
-        validated_data['is_active'] = True 
+        validated_data['is_active'] = True
         validated_data.setdefault('username', validated_data['email'])
         user = super().create(validated_data)
-        Patient.objects.create(user=user)
+        patient = Patient.objects.create(user=user)
+
+        # Crée le profil médical avec le groupe sanguin si fourni et valide.
+        if blood_group:
+            from patients.models import MedicalProfile
+            valid_choices = {c[0] for c in MedicalProfile.BLOOD_GROUP_CHOICES}
+            if blood_group in valid_choices:
+                MedicalProfile.objects.create(patient=patient, blood_group=blood_group)
         return user
 
 
@@ -218,24 +228,36 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Sérialiseur de lecture pour lister les utilisateurs (Admin)"""
+    full_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'role', 'phone', 
+            'id', 'email', 'full_name', 'first_name', 'last_name', 'role', 'phone', 
             'sex', 'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
             'verification_status', 'is_active'
         ]
-        read_only_fields = ['role', 'verification_status', 'is_active']
+        read_only_fields = ['full_name', 'role', 'verification_status', 'is_active']
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 
 class BaseUserUpdateSerializer(serializers.ModelSerializer):
     """Base pour la mise à jour des infos générales (Endpoint Caméléon)"""
+    full_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
-            'first_name', 'last_name', 'phone', 'sex', 
-            'date_of_birth', 'address', 'postal_code', 'city', 'wilaya'
+            'id', 'email', 'role', 'full_name', 'first_name', 'last_name', 'phone', 'sex', 
+            'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
+            'verification_status', 'is_active'
         ]
+        read_only_fields = ['id', 'email', 'role', 'full_name', 'verification_status', 'is_active']
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 # Import local pour éviter les imports circulaires avec l'app patients
 from patients.serializers import PatientSerializer 

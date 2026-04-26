@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, DocumentFile
+from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, DocumentFile, SymptomAnalysis
 
 class PatientSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
@@ -75,6 +75,13 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
                 DocumentFile.objects.create(document=document, file=f)
                 
         return document
+
+class SymptomAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SymptomAnalysis
+        fields = ['id', 'symptoms', 'suggested_diagnosis', 'urgency_level', 'created_at']
+        read_only_fields = ['patient']
+
 
 class MedicalProfileSerializer(serializers.ModelSerializer):
     allergies = AllergySerializer(many=True, read_only=True)

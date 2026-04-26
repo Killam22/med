@@ -3,14 +3,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from django.utils import timezone
-from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument
+from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, SymptomAnalysis
 from .serializers import (
     PatientSerializer,
     MedicalProfileSerializer,
     AllergySerializer,
     AntecedentSerializer,
     TreatmentSerializer,
-    MedicalDocumentSerializer
+    MedicalDocumentSerializer,
+    SymptomAnalysisSerializer,
 )
 
 from appointments.permissions import IsPatient
@@ -73,6 +74,18 @@ class MedicalDocumentListView(generics.ListCreateAPIView):
             patient=self.request.user.patient_profile,
             uploaded_by=self.request.user
         )
+
+
+class SymptomAnalysisListView(generics.ListCreateAPIView):
+    """GET / POST /api/patients/symptom-analysis/ — historique IA du patient."""
+    serializer_class = SymptomAnalysisSerializer
+    permission_classes = [IsPatient]
+
+    def get_queryset(self):
+        return SymptomAnalysis.objects.filter(patient=self.request.user.patient_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(patient=self.request.user.patient_profile)
 
 
 class DoctorPatientsListView(generics.ListAPIView):

@@ -130,6 +130,28 @@ class Treatment(models.Model):
     def __str__(self):
         return f"{self.medication_name} {self.dosage} — {self.patient}"
 
+class SymptomAnalysis(models.Model):
+    URGENCY_CHOICES = [
+        ('low', 'Faible'),
+        ('moderate', 'Modérée'),
+        ('high', 'Élevée'),
+        ('emergency', 'Urgence'),
+    ]
+    patient = models.ForeignKey(
+        Patient, on_delete=models.CASCADE, related_name='symptom_analyses'
+    )
+    symptoms = models.TextField(help_text="Symptômes décrits par le patient")
+    suggested_diagnosis = models.TextField(blank=True)
+    urgency_level = models.CharField(max_length=20, choices=URGENCY_CHOICES, default='low')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"IA — {self.patient} ({self.created_at:%Y-%m-%d})"
+
+
 class MedicalDocument(models.Model):
     DOCUMENT_TYPES = [
         ('lab_result', 'Résultat d\'analyse'),

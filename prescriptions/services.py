@@ -150,11 +150,16 @@ class PDFService:
         qr_token = getattr(prescription, 'qr_token', None)
         if qr_token:
             qr_base64 = QRCodeService.generate_qr_image(qr_token.token)
-            qr_data = base64.b64decode(qr_base64)
-            qr_image = Image(io.BytesIO(qr_data), 3*cm, 3*cm)
-            qr_image.hAlign = 'RIGHT'
-            content.append(qr_image)
-            content.append(Paragraph("Scannez pour vérification", ParagraphStyle('QRNote', parent=styles['Normal'], fontSize=8, alignment=2)))
+            # Vérifier si c'est du base64 valide (pas un message d'erreur)
+            if qr_base64 and not qr_base64.startswith("QR Code"):
+                try:
+                    qr_data = base64.b64decode(qr_base64)
+                    qr_image = Image(io.BytesIO(qr_data), 3*cm, 3*cm)
+                    qr_image.hAlign = 'RIGHT'
+                    content.append(qr_image)
+                    content.append(Paragraph("Scannez pour vérification", ParagraphStyle('QRNote', parent=styles['Normal'], fontSize=8, alignment=2)))
+                except Exception as e:
+                    print(f"Erreur QR PDF: {e}")
 
         # Construction du document
         doc.build(content)

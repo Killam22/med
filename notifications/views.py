@@ -39,6 +39,11 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         notification.save()
         return Response({'status': 'Notification marquée comme lue.'})
 
+    @action(detail=True, methods=['post'], url_path='read')
+    def read(self, request, pk=None):
+        """POST /notifications/{id}/read/ — alias court pour le frontend."""
+        return self.mark_as_read(request, pk=pk)
+
     @action(detail=False, methods=['post'])
     def mark_all_as_read(self, request):
         """POST /notifications/mark_all_as_read/"""
