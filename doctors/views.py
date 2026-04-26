@@ -72,6 +72,7 @@ class WeeklyScheduleViewSet(viewsets.ModelViewSet):
     """
     serializer_class   = WeeklyScheduleSerializer
     permission_classes = [IsDoctor]
+    pagination_class   = None
 
     def get_queryset(self):
         return WeeklySchedule.objects.filter(

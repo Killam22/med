@@ -59,6 +59,8 @@ class WeeklySchedule(models.Model):
     day_of_week   = models.IntegerField(choices=DAY_CHOICES)
     start_time    = models.TimeField()
     end_time      = models.TimeField()
+    break_start   = models.TimeField(null=True, blank=True)
+    break_end     = models.TimeField(null=True, blank=True)
     slot_duration = models.IntegerField(choices=DURATION_CHOICES, default=30)
     is_active     = models.BooleanField(default=True)
 

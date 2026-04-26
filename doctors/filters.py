@@ -8,11 +8,11 @@ class DoctorFilter(django_filters.FilterSet):
     city = django_filters.CharFilter(field_name='exercises__est_city', lookup_expr='icontains')
     gender = django_filters.CharFilter(field_name='user__sex', lookup_expr='exact')
     rating_min = django_filters.NumberFilter(field_name='rating', lookup_expr='gte')
-    date = django_filters.DateFilter(method='filter_by_date', label='Date disponible')
+    # date filter is handled via service layer in serializer, not via simple queryset filter
 
     class Meta:
         model = Doctor
-        fields = ['specialty', 'city', 'gender', 'rating_min', 'search', 'date']
+        fields = ['specialty', 'city', 'gender', 'rating_min', 'search']
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(
@@ -21,9 +21,3 @@ class DoctorFilter(django_filters.FilterSet):
             Q(clinic_name__icontains=value) |
             Q(specialty__icontains=value)
         )
-
-    def filter_by_date(self, queryset, name, value):
-        return queryset.filter(
-            slots__date=value,
-            slots__is_booked=False
-        ).distinct()

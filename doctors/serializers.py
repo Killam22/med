@@ -16,13 +16,26 @@ class WeeklyScheduleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = WeeklySchedule
-        fields = ['id', 'day_of_week', 'day_label', 'start_time', 'end_time', 'slot_duration', 'is_active']
+        fields = ['id', 'day_of_week', 'day_label', 'start_time', 'end_time', 'break_start', 'break_end', 'slot_duration', 'is_active']
         read_only_fields = ['id', 'day_label']
 
     def validate(self, data):
-        if data.get('end_time') and data.get('start_time'):
-            if data['end_time'] <= data['start_time']:
-                raise serializers.ValidationError("L'heure de fin doit être après l'heure de début.")
+        start = data.get('start_time')
+        end = data.get('end_time')
+        b_start = data.get('break_start')
+        b_end = data.get('break_end')
+
+        if start and end and end <= start:
+            raise serializers.ValidationError("L'heure de fin doit être après l'heure de début.")
+        
+        if b_start and b_end:
+            if b_end <= b_start:
+                raise serializers.ValidationError("La fin de la pause doit être après le début de la pause.")
+            if b_start < start or b_end > end:
+                raise serializers.ValidationError("La pause doit être comprise dans les heures de travail.")
+        elif b_start or b_end:
+             raise serializers.ValidationError("Veuillez renseigner à la fois le début et la fin de la pause.")
+
         return data
 
 

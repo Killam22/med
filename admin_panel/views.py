@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, filters, permissions
+from rest_framework import viewsets, status, filters, permissions, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
@@ -11,6 +11,8 @@ from django.db.models import Count
 from .models import AuditLog
 from .serializers import AdminUserSerializer, AuditLogSerializer
 from notifications.models import Notification # Toujours lié à tes supers notifications
+from appointments.models import Appointment
+from appointments.serializers import AppointmentSerializer
 
 User = get_user_model()
 
@@ -125,6 +127,37 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['level']
+
+
+class AdminAppointmentListView(generics.ListAPIView):
+    """GET /api/admin/appointments/ — liste tous les RDV (admin uniquement)"""
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        qs = Appointment.objects.all().select_related(
+            'patient__user', 'doctor__user'
+        ).order_by('-date', '-start_time')
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        data = [
+            {
+                "id": a.id,
+                "patient": a.patient.user.get_full_name() if a.patient and a.patient.user else "—",
+                "doctor": a.doctor.user.get_full_name() if a.doctor and a.doctor.user else "—",
+                "specialty": getattr(a.doctor, 'specialty', '—') or '—',
+                "date": str(a.date),
+                "start_time": str(a.start_time),
+                "motif": a.motif or '—',
+                "status": a.status,
+            }
+            for a in qs
+        ]
+        return Response(data)
 
 
 class AdminDashboardView(APIView):

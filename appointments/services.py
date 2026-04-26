@@ -14,17 +14,32 @@ def _generate_slots_for_day(schedule: WeeklySchedule, target_date: date) -> list
     """
     Pure function: given a schedule rule and a date, return a list of
     {start_time, end_time} dicts. No DB access.
+    Skips slots overlapping with [break_start, break_end].
     """
     slots = []
     delta = timedelta(minutes=schedule.slot_duration)
     current = datetime.combine(target_date, schedule.start_time)
     end     = datetime.combine(target_date, schedule.end_time)
 
+    b_start = datetime.combine(target_date, schedule.break_start) if schedule.break_start else None
+    b_end   = datetime.combine(target_date, schedule.break_end)   if schedule.break_end   else None
+
     while current + delta <= end:
-        slots.append({
-            'start_time': current.time(),
-            'end_time':   (current + delta).time(),
-        })
+        s_start = current
+        s_end   = current + delta
+
+        # Check if slot overlaps with break
+        is_break = False
+        if b_start and b_end:
+            # Overlap if slot_start < break_end AND slot_end > break_start
+            if s_start.time() < b_end.time() and s_end.time() > b_start.time():
+                is_break = True
+
+        if not is_break:
+            slots.append({
+                'start_time': s_start.time(),
+                'end_time':   s_end.time(),
+            })
         current += delta
     return slots
 
