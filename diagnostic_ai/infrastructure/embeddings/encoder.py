@@ -3,8 +3,8 @@
 import os
 import logging
 
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
-os.environ["HF_HUB_OFFLINE"]       = "1"
+# os.environ["TRANSFORMERS_OFFLINE"] = "1"
+# os.environ["HF_HUB_OFFLINE"]       = "1"
 
 from sentence_transformers import SentenceTransformer
 from django.conf import settings
@@ -19,8 +19,9 @@ def get_encoder() -> SentenceTransformer:
         logger.info("Chargement modèle embedding: %s", settings.EMBEDDING_MODEL)
         _model = SentenceTransformer(
             settings.EMBEDDING_MODEL,
-            local_files_only=True
+            local_files_only=False
         )
+
         logger.info(
             "Modèle embedding prêt — dimensions: %d",
             _model.get_sentence_embedding_dimension()

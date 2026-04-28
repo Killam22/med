@@ -1,0 +1,17 @@
+[
+  {
+    "specialty_en": "cardiology",
+    "specialty_fr": "Cardiologue",
+    "specialty_ar": "طبيب قلب"
+  },
+  {
+    "specialty_en": "dermatology",
+    "specialty_fr": "Dermatologue",
+    "specialty_ar": "طبيب جلدية"
+  },
+  {
+    "specialty_en": "general",
+    "specialty_fr": "Médecin Généraliste",
+    "specialty_ar": "طبيب عام"
+  }
+]

@@ -51,11 +51,14 @@ def notify_admins_new_registration(user):
     from django.contrib.auth import get_user_model
     from notifications.models import Notification
 
+    print("Notifying admins for:", user.email)
+
     User = get_user_model()
     role_label = ROLE_LABELS.get(user.role, user.role)
     full_name = user.get_full_name() or user.email
 
     admins = User.objects.filter(role='admin', is_active=True)
+    print(f"  → {admins.count()} admin(s) trouvé(s) avec role='admin' is_active=True")
     Notification.objects.bulk_create([
         Notification(
             user=admin,
@@ -65,3 +68,4 @@ def notify_admins_new_registration(user):
         )
         for admin in admins
     ])
+    print(f"  → Notifications créées pour {admins.count()} admin(s)")

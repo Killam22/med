@@ -26,17 +26,7 @@ def similarity(text1: str, text2: str) -> float:
 # ══════════════════════════════════════════════
 
 def get_from_cache(symptoms: str, lang: str) -> dict | None:
-    from diagnostic_ai.models import DiagnosisCache
-
-    symptoms_hash = compute_hash(symptoms, lang)
-    try:
-        cache = DiagnosisCache.objects.get(symptoms_hash=symptoms_hash)
-        cache.hit_count += 1
-        cache.save(update_fields=["hit_count"])
-        logger.info("✅ Cache HIT exact — '%s' (hits: %d)", symptoms[:40], cache.hit_count)
-        return _diagnosis_cache_to_result(cache)
-    except DiagnosisCache.DoesNotExist:
-        pass
+    return None # Désactivé temporairement pour test
 
     recent = DiagnosisCache.objects.filter(lang=lang).order_by("-hit_count")[:50]
     for cache in recent:

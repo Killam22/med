@@ -322,12 +322,18 @@ def is_symptoms_too_vague(symptoms: str, diseases: list) -> bool:
         return True
     if len(symptoms.strip()) < MIN_SYMPTOMS_CHARS:
         return True
+    
+    # Si on n'a pas de maladies dans la DB, on laisse quand même Gemini répondre
+    # au lieu de bloquer avec un message générique.
     if not diseases:
-        return True
+        return False
+        
     best_confidence = max(d.get("confidence", 0) for d in diseases)
     if best_confidence < MIN_DISEASES_CONFIDENCE:
-        return True
+        # Même si la confiance est faible, on laisse Gemini tenter une analyse
+        return False
     return False
+
 
 
 def translate_symptoms(symptoms: str) -> str:

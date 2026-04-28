@@ -138,7 +138,9 @@ REST_FRAMEWORK = {
         'anon': '20/hour',
         'user': '500/hour',
         'login': '5/minute',  # throttle custom sur la vue token
+        'diagnosis': '10/day', # Limite pour l'IA Diagnostic
     }
+
 }
 
 # ── Spectacular Settings (OpenAPI) ─────────────────────────────────────────────
@@ -228,3 +230,12 @@ LOGGING = {
         },
     },
 }
+# ── AI Diagnostic Settings ────────────────────────────────────────────────────
+GEMINI_API_KEY  = os.environ.get('GEMINI_API_KEY')
+GEMINI_MODEL    = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
+
+
+
+CHROMA_PATH     = os.path.join(BASE_DIR, 'diagnostic_ai', 'infrastructure', 'vector_db', 'data')
+DATASET_PATH    = os.path.join(BASE_DIR, 'diagnostic_ai', 'services', 'dataset')
+EMBEDDING_MODEL = 'intfloat/multilingual-e5-large'

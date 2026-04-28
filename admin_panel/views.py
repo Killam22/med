@@ -1,12 +1,22 @@
 from rest_framework import viewsets, status, filters, permissions, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import BasePermission
 from rest_framework.views import APIView
 from rest_framework.renderers import JSONRenderer
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 from django.db.models import Count
+
+
+class IsAdminRole(BasePermission):
+    """Accorde l'accès aux utilisateurs avec role='admin' ou is_superuser=True."""
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            (getattr(request.user, 'role', None) == 'admin' or request.user.is_superuser)
+        )
 
 from .models import AuditLog
 from .serializers import AdminUserSerializer, AuditLogSerializer
@@ -25,7 +35,7 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
     """Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'"""
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdminUserSerializer
-    permission_classes = [IsAdminUser] # Seulement accessible aux superusers
+    permission_classes = [IsAdminRole] # Seulement accessible aux superusers
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['role', 'verification_status', 'is_active']
@@ -123,7 +133,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """Endpoint pour l'écran 'Journal d'Audit'"""
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminRole]
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['level']
@@ -131,7 +141,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AdminAppointmentListView(generics.ListAPIView):
     """GET /api/admin/appointments/ — liste tous les RDV (admin uniquement)"""
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminRole]
 
     def get_queryset(self):
         qs = Appointment.objects.all().select_related(
