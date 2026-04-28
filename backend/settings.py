@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'admin_panel',
     'drf_spectacular',
     'messaging',
-    'settings'
+    'settings',
+    'diagnostic_ai'
     ]
 
 # ── Middleware ───────────────────────────────────────────────────────────────
