@@ -6,19 +6,23 @@ from .views import (
     # Auth JWT
     CustomTokenObtainPairView,
     LogoutView,
-    
+
     # Inscriptions par rôle
     RegisterPatientView,
     RegisterDoctorView,
     RegisterPharmacistView,
     RegisterCaretakerView,
-    
-    # Vérification Email OTP
+
+    # Vérification Email OTP (inscription)
     VerifyRegisterOTPView,
-    
+
+    # Pré-check email avant inscription (étape 1.5)
+    SendRegisterOTPView,
+    VerifyRegisterPreOTPView,
+
     # Le Caméléon
     UnifiedProfileView,
-    
+
     # Mots de passe
     ChangePasswordView,
     PasswordResetRequestView,
@@ -38,7 +42,11 @@ urlpatterns = [
     path('register/pharmacist/', RegisterPharmacistView.as_view(), name='register_pharmacist'),
     path('register/caretaker/', RegisterCaretakerView.as_view(), name='register_caretaker'),
 
-    # ── ✉️ Activation du compte (Vérification OTP) ───────────────────────────
+    # ── ✉️ Pré-check email avant inscription (étape 1.5 du front) ────────────
+    path('register/send-otp/', SendRegisterOTPView.as_view(), name='register_send_otp'),
+    path('register/verify-otp/', VerifyRegisterPreOTPView.as_view(), name='register_verify_otp'),
+
+    # ── ✉️ Activation du compte (Vérification OTP finale) ────────────────────
     path('register/verify/', VerifyRegisterOTPView.as_view(), name='verify_register_otp'),
 
     # ── 🦎 Profil Utilisateur (Endpoint Caméléon) ─────────────────────────────

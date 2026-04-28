@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from django.utils import timezone
 from rest_framework import generics, status, permissions
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
@@ -354,3 +354,115 @@ class DoctorReviewListView(generics.ListAPIView):
     def get_queryset(self):
         doctor_id = self.kwargs['pk']
         return Review.objects.filter(doctor_id=doctor_id).order_by('-created_at')
+
+
+# ── Start Consultation ────────────────────────────────────────────────────────
+
+class StartConsultationView(APIView):
+    """
+    PATCH /api/appointments/{id}/start/
+    Démarre une consultation : passe le RDV de 'confirmed' → 'in_progress'.
+    Réservé au médecin propriétaire du RDV.
+    """
+    permission_classes = [IsDoctor]
+
+    def patch(self, request, pk):
+        try:
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except Appointment.DoesNotExist:
+            return Response({"detail": "Rendez-vous introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if appt.status != 'confirmed':
+            return Response(
+                {"detail": f"Seuls les rendez-vous confirmés peuvent être démarrés (statut actuel : {appt.get_status_display()})."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        appt.start()
+        return Response(AppointmentDoctorSerializer(appt).data, status=status.HTTP_200_OK)
+
+
+# ── Patient Full Record (doctor view) ─────────────────────────────────────────
+
+class PatientRecordView(APIView):
+    """
+    GET /api/doctor/patients/{patient_id}/record/
+    Dossier médical complet d'un patient, accessible uniquement par un médecin
+    ayant eu au moins un rendez-vous avec lui.
+    """
+    permission_classes = [IsDoctor]
+
+    def get(self, request, patient_id):
+        doctor = request.user.doctor_profile
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+            return Response(
+                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        from patients.models import MedicalProfile, MedicalDocument
+        from consultations.models import Consultation
+        from prescriptions.models import Prescription
+
+        # Profil de base
+        from patients.serializers import PatientSerializer
+        profile = PatientSerializer(patient).data
+
+        # Profil médical
+        medical_profile_obj, _ = MedicalProfile.objects.get_or_create(patient=patient)
+        from patients.serializers import MedicalProfileSerializer
+        medical_profile = MedicalProfileSerializer(medical_profile_obj).data
+
+        # Historique des consultations (toutes, pas seulement avec ce médecin)
+        consultations = Consultation.objects.filter(patient=patient).select_related('doctor__user').order_by('-consulted_at')[:20]
+        history = [
+            {
+                "diagnosis_date": c.consulted_at.date().isoformat(),
+                "condition":      c.diagnosis or c.chief_complaint,
+                "description":    c.doctor_notes,
+                "doctor_name":    c.doctor.user.get_full_name(),
+                "type":           c.consultation_type,
+            }
+            for c in consultations
+        ]
+
+        # Documents / résultats d'analyses
+        docs = MedicalDocument.objects.filter(patient=patient).order_by('-uploaded_at')[:20]
+        lab_results = [
+            {
+                "test_name": d.name,
+                "lab_name":  d.document_type,
+                "result":    "—",
+                "status":    "Disponible",
+            }
+            for d in docs
+        ]
+
+        # Ordonnances via consultations du patient
+        prescriptions_qs = Prescription.objects.filter(
+            consultation__patient=patient
+        ).prefetch_related('items').select_related('consultation__doctor__user').order_by('-created_at')[:20]
+
+        prescriptions = []
+        for rx in prescriptions_qs:
+            for item in rx.items.all():
+                prescriptions.append({
+                    "medication":        item.drug_name,
+                    "frequency":         item.frequency,
+                    "duration":          item.duration,
+                    "prescription_date": rx.created_at.date().isoformat(),
+                })
+
+        return Response({
+            "profile":         profile,
+            "medical_profile": medical_profile,
+            "history":         history,
+            "lab_results":     lab_results,
+            "prescriptions":   prescriptions,
+        })

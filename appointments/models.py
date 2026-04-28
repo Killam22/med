@@ -16,11 +16,12 @@ from doctors.models import Doctor
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
-        ('pending',   'En attente'),
-        ('confirmed', 'Confirmé'),
-        ('cancelled', 'Annulé'),
-        ('refused',   'Refusé'),
-        ('completed', 'Terminé'),
+        ('pending',     'En attente'),
+        ('confirmed',   'Confirmé'),
+        ('in_progress', 'En cours'),
+        ('cancelled',   'Annulé'),
+        ('refused',     'Refusé'),
+        ('completed',   'Terminé'),
     ]
 
     patient    = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments')
@@ -62,7 +63,7 @@ class Appointment(models.Model):
 
     @property
     def is_active(self):
-        return self.status in ('pending', 'confirmed')
+        return self.status in ('pending', 'confirmed', 'in_progress')
 
     # ── State transitions ─────────────────────────────────────────────────────
 
@@ -72,6 +73,10 @@ class Appointment(models.Model):
 
     def confirm(self):
         self.status = 'confirmed'
+        self.save(update_fields=['status', 'updated_at'])
+
+    def start(self):
+        self.status = 'in_progress'
         self.save(update_fields=['status', 'updated_at'])
 
     def refuse(self, reason=''):

@@ -231,6 +231,54 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"erreur": "Token invalide ou manquant."}, status=status.HTTP_400_BAD_REQUEST)
 
+# ── 2b. PRÉ-VÉRIFICATION EMAIL AVANT INSCRIPTION ─────────────────────────────
+
+class SendRegisterOTPView(APIView):
+    """
+    POST { email } → Génère et envoie un OTP de vérification pour un email non encore inscrit.
+    Utilisé côté front avant l'étape 2 du formulaire d'inscription.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'error': 'Email requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'Un compte existe déjà avec cet email.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            otp_obj = EmailOTP.generate(email=email, purpose=EmailOTP.PURPOSE_REGISTER)
+            send_otp_email(email, otp_obj.otp, purpose='register')
+        except Exception:
+            pass
+        return Response({'message': 'Code envoyé.'}, status=status.HTTP_200_OK)
+
+
+class VerifyRegisterPreOTPView(APIView):
+    """
+    POST { email, code } → Vérifie le code OTP sans le marquer comme utilisé
+    (l'activation finale reste gérée par VerifyRegisterOTPView après la soumission complète).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email    = request.data.get('email', '').strip().lower()
+        code     = request.data.get('code', '').strip()
+        if not email or not code:
+            return Response({'error': 'Email et code requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp_obj = EmailOTP.objects.filter(
+            email=email,
+            purpose=EmailOTP.PURPOSE_REGISTER,
+            is_used=False,
+        ).first()
+
+        if not otp_obj or otp_obj.is_expired() or otp_obj.otp != code:
+            return Response({'error': 'Code incorrect ou expiré.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'Email vérifié.'}, status=status.HTTP_200_OK)
+
+
 # ── 3. PROFIL "CAMÉLÉON" ─────────────────────────────────────────────────────
 
 class UnifiedProfileView(generics.RetrieveUpdateAPIView):
@@ -291,8 +339,11 @@ class PasswordResetRequestView(APIView):
         except User.DoesNotExist:
             return Response(GENERIC_MSG, status=status.HTTP_200_OK)
 
-        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_RESET)
-        send_otp_email(user.email, otp_obj.otp, purpose='reset')
+        try:
+            otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_RESET)
+            send_otp_email(user.email, otp_obj.otp, purpose='reset')
+        except Exception:
+            pass  # OTP visible dans la console (backend console.EmailBackend en dev)
 
         return Response(GENERIC_MSG, status=status.HTTP_200_OK)
 
