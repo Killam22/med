@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     path('api/admin/', include('admin_panel.urls')),
     path('api/messaging/', include('messaging.urls')),
+    path('api/chat/', include('messaging.urls')),
     path('api/settings/', include('settings.urls')),
 
     # ── DRF Browsable API ────────────────────────────────────────────────────

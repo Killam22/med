@@ -1,5 +1,5 @@
 from django.db.models import Q, Sum
-from rest_framework import generics, permissions, viewsets, status
+from rest_framework import generics, permissions, viewsets, status, filters
 from rest_framework.views import APIView
 from rest_framework.renderers import JSONRenderer
 from django.utils import timezone
@@ -22,9 +22,21 @@ class PharmacistListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
 class PharmacyListView(generics.ListAPIView):
-    queryset = Pharmacy.objects.all()
     serializer_class = PharmacySerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'pharm_city', 'pharm_address']
+    ordering_fields = ['name', 'pharm_city']
+
+    def get_queryset(self):
+        qs = Pharmacy.objects.all()
+        city = self.request.query_params.get('city')
+        open_24h = self.request.query_params.get('is_open_24h')
+        if city:
+            qs = qs.filter(pharm_city__icontains=city)
+        if open_24h in ('true', '1'):
+            qs = qs.filter(is_open_24h=True)
+        return qs
 
 class AddQualificationView(generics.CreateAPIView):
     queryset = PharmacistQualification.objects.all()
@@ -79,15 +91,30 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
         return PharmacyOrder.objects.none()
 
     def perform_create(self, serializer):
+        from django.contrib.auth import get_user_model
+        from notifications.models import Notification
         order = serializer.save(patient=self.request.user)
         if order.pharmacist:
-            from notifications.models import Notification
             Notification.objects.create(
                 user=order.pharmacist,
                 title="Nouvelle commande",
                 message="Nouvelle commande en attente de préparation.",
                 notification_type=Notification.NotificationType.PHARMACY
             )
+        else:
+            # Notifier tous les pharmaciens actifs quand aucun pharmacien spécifique n'est désigné
+            User = get_user_model()
+            patient_name = self.request.user.get_full_name() or self.request.user.email
+            pharmacists = User.objects.filter(role='pharmacist', is_active=True)
+            Notification.objects.bulk_create([
+                Notification(
+                    user=ph,
+                    title="Nouvelle ordonnance reçue",
+                    message=f"Nouvelle commande de {patient_name} en attente de traitement.",
+                    notification_type=Notification.NotificationType.PHARMACY,
+                )
+                for ph in pharmacists
+            ])
 
     def destroy(self, request, *args, **kwargs):
         order = self.get_object()
@@ -154,6 +181,13 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
                 user=updated_order.patient,
                 title="Commande prête !",
                 message="Votre commande est prête à être récupérée !",
+                notification_type=Notification.NotificationType.PHARMACY
+            )
+        elif updated_order.status == 'delivered':
+            Notification.objects.create(
+                user=updated_order.patient,
+                title="Commande délivrée",
+                message="Votre commande a été délivrée. Merci de votre confiance.",
                 notification_type=Notification.NotificationType.PHARMACY
             )
 

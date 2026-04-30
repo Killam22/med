@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate
-from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer
+from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask
+from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer, CaretakerTaskSerializer
 
 class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
     """API pour les patients : Rechercher et filtrer les gardes-malades"""
@@ -104,6 +104,57 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         )
 
         return Response(CareMessageSerializer(message).data, status=status.HTTP_201_CREATED)
+
+class CaretakerTaskViewSet(viewsets.ModelViewSet):
+    """
+    Garde-malade : gestion des tâches pour ses patients assignés.
+    POST   /api/caretaker/tasks/             → créer une tâche
+    GET    /api/caretaker/tasks/             → liste ses tâches
+    PATCH  /api/caretaker/tasks/{id}/        → mettre à jour (marquer effectuée)
+    DELETE /api/caretaker/tasks/{id}/        → supprimer
+
+    Le patient associé peut aussi voir les tâches qui le concernent.
+    """
+    serializer_class = CaretakerTaskSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'caretaker':
+            return CaretakerTask.objects.filter(care_request__caretaker__user=user)
+        if user.role == 'patient':
+            return CaretakerTask.objects.filter(care_request__patient=user)
+        return CaretakerTask.objects.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'caretaker':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seul un garde-malade peut créer des tâches.")
+        task = serializer.save()
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=task.care_request.patient,
+            title="Nouvelle tâche planifiée",
+            message=f"Votre garde-malade a planifié une nouvelle tâche : {task.title}.",
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        task = serializer.save()
+        if task.status == CaretakerTask.Status.DONE:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=task.care_request.patient,
+                title="Tâche effectuée",
+                message=f"La tâche « {task.title} » a été marquée comme effectuée.",
+                notification_type=Notification.NotificationType.CARETAKER,
+            )
+        return Response(serializer.data)
+
 
 class CaretakerDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]

@@ -70,8 +70,9 @@ class PharmacyOrderCreateSerializer(serializers.ModelSerializer):
                 
             user = self.context['request'].user
             # Vérifier si l'ordonnance appartient au patient
+            # prescription.patient retourne un objet Patient (pas User) → comparer via .user
             if hasattr(user, 'patient_profile'):
-                 if getattr(prescription, 'patient', None) != user:
+                 if getattr(prescription, 'patient', None) and prescription.patient.user != user:
                     raise serializers.ValidationError({"prescription": "Cette ordonnance ne vous appartient pas."})
                     
             if getattr(prescription, 'status', None) != Prescription.Status.ACTIVE:

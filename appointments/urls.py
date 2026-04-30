@@ -19,6 +19,8 @@ from .views import (
     DoctorPendingAppointmentsView,
     StartConsultationView,
     PatientRecordView,
+    DoctorAddDiagnosisView,
+    DoctorAddTreatmentView,
 
     # Reviews
     CreateReviewView,
@@ -46,7 +48,9 @@ urlpatterns = [
     path('doctor/appointments/<int:pk>/refuse/',      views.RefuseAppointmentView.as_view(),              name='appointment-refuse'),
     path('doctor/appointments/<int:pk>/complete/',    views.CompleteAppointmentView.as_view(),            name='appointment-complete'),
     path('appointments/<int:pk>/start/',              StartConsultationView.as_view(),                   name='appointment-start'),
-    path('doctor/patients/<int:patient_id>/record/',  PatientRecordView.as_view(),                       name='patient-record'),
+    path('doctor/patients/<int:patient_id>/record/',            PatientRecordView.as_view(),         name='patient-record'),
+    path('doctor/patients/<int:patient_id>/add-diagnosis/',    DoctorAddDiagnosisView.as_view(),    name='doctor-add-diagnosis'),
+    path('doctor/patients/<int:patient_id>/add-treatment/',    DoctorAddTreatmentView.as_view(),    name='doctor-add-treatment'),
 
     # ── Reviews ────────────────────────────────────────────────────────────────
     path('appointments/<int:pk>/review/', CreateReviewView.as_view(),      name='appointment-review'),

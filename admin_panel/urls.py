@@ -9,5 +9,6 @@ router.register(r'audit-logs', AuditLogViewSet, basename='admin-audit-logs')
 urlpatterns = [
     path('', include(router.urls)),
     path('dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
+    path('stats/',     AdminDashboardView.as_view(), name='admin-stats'),
     path('appointments/', AdminAppointmentListView.as_view(), name='admin-appointments'),
 ]

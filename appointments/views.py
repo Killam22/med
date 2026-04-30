@@ -466,3 +466,118 @@ class PatientRecordView(APIView):
             "lab_results":     lab_results,
             "prescriptions":   prescriptions,
         })
+
+
+# ── Doctor writes to patient record ──────────────────────────────────────────
+
+class DoctorAddDiagnosisView(APIView):
+    """
+    POST /api/doctor/patients/{patient_id}/add-diagnosis/
+    Médecin : ajoute un antécédent/diagnostic dans le dossier du patient.
+    Permission : au moins un RDV entre ce médecin et ce patient.
+
+    Body: { "condition": str, "description": str (optionnel), "diagnosis_date": "YYYY-MM-DD" (optionnel) }
+    """
+    permission_classes = [IsDoctor]
+
+    def post(self, request, patient_id):
+        doctor = request.user.doctor_profile
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+            return Response(
+                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        condition = (request.data.get('condition') or '').strip()
+        if not condition:
+            return Response({"detail": "condition est requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        description = request.data.get('description') or ''
+        diagnosis_date = request.data.get('diagnosis_date') or None
+
+        from patients.models import Antecedent
+        from django.utils import timezone as tz
+        antecedent = Antecedent.objects.create(
+            patient=patient,
+            name=condition,
+            type='personnel',
+            description=description,
+            date_diagnosis=diagnosis_date or tz.now().date(),
+        )
+
+        # Notifier le patient
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=patient.user,
+            title="Dossier médical mis à jour",
+            message=f"Le Dr. {doctor.user.last_name} a ajouté un diagnostic dans votre dossier médical.",
+            notification_type=Notification.NotificationType.SYSTEM,
+        )
+
+        return Response(
+            {"detail": "Diagnostic ajouté.", "id": antecedent.pk},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class DoctorAddTreatmentView(APIView):
+    """
+    POST /api/doctor/patients/{patient_id}/add-treatment/
+    Médecin : ajoute un traitement en cours dans le dossier du patient.
+    Permission : au moins un RDV entre ce médecin et ce patient.
+
+    Body: { "medication_name": str, "dosage": str, "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" (optionnel) }
+    """
+    permission_classes = [IsDoctor]
+
+    def post(self, request, patient_id):
+        doctor = request.user.doctor_profile
+
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+            return Response(
+                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        medication_name = (request.data.get('medication_name') or '').strip()
+        if not medication_name:
+            return Response({"detail": "medication_name est requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        dosage = request.data.get('dosage') or ''
+        start_date = request.data.get('start_date') or None
+        end_date = request.data.get('end_date') or None
+
+        from patients.models import Treatment
+        from django.utils import timezone as tz
+        treatment = Treatment.objects.create(
+            patient=patient,
+            prescribed_by=doctor,
+            medication_name=medication_name,
+            dosage=dosage,
+            start_date=start_date or tz.now().date(),
+            end_date=end_date,
+        )
+
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=patient.user,
+            title="Dossier médical mis à jour",
+            message=f"Le Dr. {doctor.user.last_name} a ajouté un traitement dans votre dossier médical.",
+            notification_type=Notification.NotificationType.SYSTEM,
+        )
+
+        return Response(
+            {"detail": "Traitement ajouté.", "id": treatment.pk},
+            status=status.HTTP_201_CREATED,
+        )

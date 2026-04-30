@@ -37,9 +37,10 @@ def send_otp_email(email, otp, purpose):
 
 
 ROLE_LABELS = {
-    'doctor': 'Médecin',
+    'doctor':     'Médecin',
     'pharmacist': 'Pharmacien',
-    'caretaker': 'Garde-malade',
+    'caretaker':  'Garde-malade',
+    'patient':    'Patient',
 }
 
 

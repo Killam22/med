@@ -92,6 +92,7 @@ class RegisterPatientView(generics.CreateAPIView):
         user = serializer.save()
         otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
         send_otp_email(user.email, otp_obj.otp, purpose='register')
+        notify_admins_new_registration(user)
 
 
 # ── 🩺 INSCRIPTION DOCTEUR ─────────────────────────────────────────────────
