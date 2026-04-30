@@ -51,9 +51,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get', 'post'], url_path='messages')
     def messages(self, request, pk=None):
         conversation = self.get_object()
+        ctx = {'request': request}
         if request.method == 'GET':
             msgs = Message.objects.filter(conversation=conversation, is_deleted=False)
-            return Response(MessageSerializer(msgs, many=True).data)
+            return Response(MessageSerializer(msgs, many=True, context=ctx).data)
 
         # POST — envoyer un message
         content = request.data.get('content', '').strip()
@@ -65,7 +66,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             content=content,
         )
         conversation.save()  # met à jour updated_at pour le tri
-        return Response(MessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+        return Response(MessageSerializer(msg, context=ctx).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='read')
     def mark_read(self, request, pk=None):

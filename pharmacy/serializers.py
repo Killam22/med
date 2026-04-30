@@ -12,9 +12,16 @@ class PharmacistSerializer(serializers.ModelSerializer):
         ]
 
 class PharmacySerializer(serializers.ModelSerializer):
+    pharmacist_user_id = serializers.IntegerField(source='pharmacist.user.id', read_only=True)
+    pharmacist_name = serializers.CharField(source='pharmacist.user.get_full_name', read_only=True)
+
     class Meta:
-        model = Pharmacy    
-        fields = '__all__'
+        model = Pharmacy
+        fields = [
+            'id', 'pharmacist', 'pharmacist_user_id', 'pharmacist_name',
+            'name', 'pharm_address', 'pharm_city', 'pharm_phone',
+            'latitude', 'longitude', 'is_open_24h', 'agreement_number',
+        ]
 
 class PharmacyOrderSerializer(serializers.ModelSerializer):
     prescription_ref = serializers.SerializerMethodField()

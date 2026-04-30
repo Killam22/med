@@ -10,11 +10,13 @@ class CaretakerServiceSerializer(serializers.ModelSerializer):
 
 class CaretakerProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     services = CaretakerServiceSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Caretaker
-        fields = ['id', 'full_name', 'certification', 'experience_years', 'bio', 'availability_area', 'is_verified', 'is_available', 'services', 'tarif_de_base']
+        fields = ['id', 'user_id', 'full_name', 'certification', 'experience_years', 'bio',
+                  'availability_area', 'is_verified', 'is_available', 'services', 'tarif_de_base']
 
 class CareMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)

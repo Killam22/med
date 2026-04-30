@@ -15,22 +15,31 @@ class ParticipantSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
+    is_mine = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ['id', 'conversation', 'sender', 'sender_name', 'content',
-                  'is_read', 'is_deleted', 'edited_at', 'created_at']
-        read_only_fields = ['sender', 'is_read', 'is_deleted', 'edited_at']
+                  'is_read', 'is_deleted', 'edited_at', 'created_at', 'is_mine']
+        read_only_fields = ['sender', 'is_read', 'is_deleted', 'edited_at', 'is_mine']
+
+    def get_is_mine(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return False
+        return obj.sender_id == request.user.id
 
 
 class ConversationSerializer(serializers.ModelSerializer):
     participants = ParticipantSerializer(many=True, read_only=True)
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    other_participant = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'created_at', 'updated_at', 'last_message', 'unread_count']
+        fields = ['id', 'participants', 'other_participant', 'created_at', 'updated_at',
+                  'last_message', 'unread_count']
 
     def get_last_message(self, obj):
         last_msg = obj.messages.filter(is_deleted=False).last()
@@ -47,6 +56,15 @@ class ConversationSerializer(serializers.ModelSerializer):
         if not request:
             return 0
         return obj.messages.filter(is_read=False, is_deleted=False).exclude(sender=request.user).count()
+
+    def get_other_participant(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return None
+        other = obj.participants.exclude(id=request.user.id).first()
+        if other:
+            return {'id': other.id, 'full_name': other.get_full_name(), 'role': other.role}
+        return None
 
 
 class UserReportSerializer(serializers.ModelSerializer):

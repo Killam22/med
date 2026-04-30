@@ -6,9 +6,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Import des modèles de profils spécifiques
 from patients.models import Patient
-from doctors.models import Doctor, DoctorQualification
+from doctors.models import Doctor, DoctorQualification, Diploma
 from pharmacy.models import Pharmacist, Pharmacy , PharmacistQualification
-from caretaker.models import Caretaker, CaretakerCertificate
+from caretaker.models import Caretaker, CaretakerCertificate, CaretakerDiploma
 
 User = get_user_model()
 
@@ -137,6 +137,38 @@ class RegisterDoctorSerializer(RegisterUserSerializer):
             clinic_name=clinic,
             cnas_coverage=cnas
         )
+
+        # Handle Multiple Diplomas
+        request = self.context.get('request')
+        if request:
+            idx = 0
+            while True:
+                title = request.data.get(f'diplomas[{idx}][title]')
+                if not title:
+                    break
+                
+                # Convert DD/MM/YYYY to YYYY-MM-DD
+                date_str = request.data.get(f'diplomas[{idx}][date_obtained]')
+                date_obj = None
+                if date_str and '/' in date_str:
+                    try:
+                        d, m, y = date_str.split('/')
+                        date_obj = f"{y}-{m}-{d}"
+                    except:
+                        date_obj = date_str
+                else:
+                    date_obj = date_str
+
+                Diploma.objects.create(
+                    doctor=doctor_profile,
+                    title=title,
+                    institution=request.data.get(f'diplomas[{idx}][institution]', ''),
+                    date_obtained=date_obj,
+                    specialization=request.data.get(f'diplomas[{idx}][specialization]', ''),
+                    file=request.data.get(f'diplomas[{idx}][file]')
+                )
+                idx += 1
+
         return user
 
 
@@ -207,6 +239,38 @@ class RegisterCaretakerSerializer(RegisterUserSerializer):
             experience_years=experience_years,
             tarif_de_base=tarif_de_base
         )
+
+        # Handle Multiple Diplomas
+        request = self.context.get('request')
+        if request:
+            idx = 0
+            while True:
+                title = request.data.get(f'diplomas[{idx}][title]')
+                if not title:
+                    break
+                
+                # Convert DD/MM/YYYY to YYYY-MM-DD
+                date_str = request.data.get(f'diplomas[{idx}][date_obtained]')
+                date_obj = None
+                if date_str and '/' in date_str:
+                    try:
+                        d, m, y = date_str.split('/')
+                        date_obj = f"{y}-{m}-{d}"
+                    except:
+                        date_obj = date_str
+                else:
+                    date_obj = date_str
+
+                CaretakerDiploma.objects.create(
+                    caretaker=caretaker_profile,
+                    title=title,
+                    institution=request.data.get(f'diplomas[{idx}][institution]', ''),
+                    date_obtained=date_obj,
+                    specialization=request.data.get(f'diplomas[{idx}][specialization]', ''),
+                    file=request.data.get(f'diplomas[{idx}][file]')
+                )
+                idx += 1
+
         return user
 
 

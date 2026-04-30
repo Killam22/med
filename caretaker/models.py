@@ -98,3 +98,15 @@ class CaretakerCertificate(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.caretaker.user.last_name}"
+
+class CaretakerDiploma(models.Model):
+    caretaker = models.ForeignKey(Caretaker, on_delete=models.CASCADE, related_name='diplomas')
+    title = models.CharField(max_length=255)
+    institution = models.CharField(max_length=255)
+    date_obtained = models.DateField()
+    specialization = models.CharField(max_length=255, blank=True, null=True)
+    file = models.FileField(upload_to='caretaker_diplomas/', validators=[validate_file_type])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.caretaker.user.last_name}"
