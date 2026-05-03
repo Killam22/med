@@ -98,3 +98,37 @@ class EmailOTP(models.Model):
  
     def __str__(self):
         return f"{self.email} — {self.purpose} — {self.otp}"
+
+
+class ProfileUpdateRequest(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'En attente'),
+        ('approved', 'Approuvé'),
+        ('rejected', 'Refusé'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile_requests')
+    
+    # Nouvelles valeurs proposées
+    new_first_name = models.CharField(max_length=50)
+    new_last_name = models.CharField(max_length=50)
+    
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviewed_profile_requests'
+    )
+    admin_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Demande de {self.user.email} - {self.status}"

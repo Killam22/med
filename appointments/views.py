@@ -82,6 +82,7 @@ class PatientAppointmentListCreateView(generics.ListCreateAPIView):
     POST /api/appointments/ — book a new appointment
     """
     permission_classes = [IsPatient]
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -204,6 +205,7 @@ class DoctorAppointmentListView(generics.ListAPIView):
     """GET /api/doctor/appointments/ — doctor sees all their appointments."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
+    pagination_class = None
 
     def get_queryset(self):
         doctor = self.request.user.doctor_profile
@@ -219,6 +221,7 @@ class DoctorDailyScheduleView(generics.ListAPIView):
     """GET /api/doctor/schedule/ — doctor's appointments for a given day (default: today)."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
+    pagination_class = None
 
     def get_queryset(self):
         doctor = self.request.user.doctor_profile
@@ -234,6 +237,7 @@ class DoctorPendingAppointmentsView(generics.ListAPIView):
     """GET /api/doctor/appointments/pending/ — doctor's pending appointment requests."""
     serializer_class = AppointmentDoctorSerializer
     permission_classes = [IsDoctor]
+    pagination_class = None
 
     def get_queryset(self):
         doctor = self.request.user.doctor_profile

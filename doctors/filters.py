@@ -4,7 +4,7 @@ from .models import Doctor
 
 class DoctorFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(method='filter_search', label='Recherche libre')
-    specialty = django_filters.CharFilter(field_name='specialty', lookup_expr='exact')
+    specialty = django_filters.CharFilter(field_name='specialty', lookup_expr='icontains')
     city = django_filters.CharFilter(field_name='exercises__est_city', lookup_expr='icontains')
     gender = django_filters.CharFilter(field_name='user__sex', lookup_expr='exact')
     rating_min = django_filters.NumberFilter(field_name='rating', lookup_expr='gte')

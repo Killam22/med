@@ -30,6 +30,7 @@ from .serializers import (
     RegisterCaretakerSerializer,
     UserSerializer,
     PatientUnifiedSerializer,
+    ProfileUpdateRequestSerializer,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
@@ -515,3 +516,20 @@ class ChangePasswordView(APIView):
             {"message": "Votre mot de passe a été mis à jour avec succès."}, 
             status=status.HTTP_200_OK
         )
+
+
+class RequestProfileUpdateView(generics.CreateAPIView):
+    """
+    Permet à l'utilisateur de soumettre une demande de changement de nom/prénom.
+    """
+    serializer_class = ProfileUpdateRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Vérifie s'il y a déjà une demande en attente
+        from .models import ProfileUpdateRequest
+        if ProfileUpdateRequest.objects.filter(user=self.request.user, status='pending').exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Vous avez déjà une demande de changement de profil en attente.")
+            
+        serializer.save(user=self.request.user)

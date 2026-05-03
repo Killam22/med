@@ -10,6 +10,7 @@ from doctors.models import Doctor, DoctorQualification, Diploma
 from pharmacy.models import Pharmacist, Pharmacy , PharmacistQualification
 from caretaker.models import Caretaker, CaretakerCertificate, CaretakerDiploma
 
+from .models import EmailOTP, ProfileUpdateRequest
 User = get_user_model()
 
 # ── 🔑 Tokens JWT Personnalisés ────────────────────────────────────────────────
@@ -360,3 +361,16 @@ class PatientUnifiedSerializer(BaseUserUpdateSerializer):
                 profile.save()
 
         return instance
+
+
+class ProfileUpdateRequestSerializer(serializers.ModelSerializer):
+    user_email = serializers.ReadOnlyField(source='user.email')
+    full_name_requested = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProfileUpdateRequest
+        fields = '__all__'
+        read_only_fields = ['user', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'admin_notes']
+
+    def get_full_name_requested(self, obj):
+        return f"{obj.new_first_name} {obj.new_last_name}"

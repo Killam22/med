@@ -184,6 +184,8 @@ def _get_patient(request):
 
 
 def _save_session(patient, lang: str, user_msg: str, bot_response: str) -> None:
+    if patient is None:
+        return
     try:
         session, created = ConversationSession.objects.get_or_create(
             patient   = patient,
@@ -204,14 +206,16 @@ def _save_session(patient, lang: str, user_msg: str, bot_response: str) -> None:
 # CHAT NORMAL
 # ══════════════════════════════════════════════════════════════
 
+ALLOWED_AI_ROLES = {'patient', 'caretaker'}
+
 class ChatView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes   = [DiagnosisRateThrottle]   # ← Rate limiting
 
     def post(self, request):
-        if request.user.role != 'patient':
+        if request.user.role not in ALLOWED_AI_ROLES:
             return Response(
-                {"error": "Seuls les patients peuvent utiliser le bot IA."},
+                {"error": "Seuls les patients et gardes-malades peuvent utiliser le bot IA."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -300,9 +304,9 @@ class ChatStreamView(APIView):
     throttle_classes   = [DiagnosisRateThrottle]   # ← Rate limiting
 
     def post(self, request):
-        if request.user.role != 'patient':
+        if request.user.role not in ALLOWED_AI_ROLES:
             return Response(
-                {"error": "Seuls les patients peuvent utiliser le bot IA."},
+                {"error": "Seuls les patients et gardes-malades peuvent utiliser le bot IA."},
                 status=status.HTTP_403_FORBIDDEN
             )
 

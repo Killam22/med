@@ -215,3 +215,70 @@ class AdminDashboardView(APIView):
         }
         return Response(data)
 
+
+from users.models import ProfileUpdateRequest
+from users.serializers import ProfileUpdateRequestSerializer
+from django.utils import timezone
+
+class AdminProfileUpdateListView(generics.ListAPIView):
+    """
+    (Admin) Liste toutes les demandes de changement de profil.
+    """
+    queryset = ProfileUpdateRequest.objects.all()
+    serializer_class = ProfileUpdateRequestSerializer
+    permission_classes = [IsAdminRole] # Utilise la classe locale IsAdminRole
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['status']
+
+class AdminProfileUpdateActionView(APIView):
+    """
+    (Admin) Approuve ou refuse une demande de changement de profil.
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        action = request.data.get('action') # 'approve' ou 'reject'
+        notes = request.data.get('admin_notes', '')
+
+        try:
+            req = ProfileUpdateRequest.objects.get(pk=pk)
+        except ProfileUpdateRequest.DoesNotExist:
+            return Response({'error': 'Demande introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if req.status != 'pending':
+            return Response({'error': 'Cette demande a déjà été traitée.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        req.reviewed_at = timezone.now()
+        req.reviewed_by = request.user
+        req.admin_notes = notes
+
+        if action == 'approve':
+            req.status = 'approved'
+            # Appliquer les changements à l'utilisateur
+            user = req.user
+            user.first_name = req.new_first_name
+            user.last_name = req.new_last_name
+            user.save(update_fields=['first_name', 'last_name'])
+            
+            # Notification au patient
+            Notification.objects.create(
+                user=user,
+                title="Changement de nom approuvé",
+                message=f"Votre demande de changement de nom a été acceptée. Votre profil affiche désormais : {user.get_full_name()}.",
+                notification_type=Notification.NotificationType.SYSTEM
+            )
+        elif action == 'reject':
+            req.status = 'rejected'
+            # Notification au patient
+            Notification.objects.create(
+                user=req.user,
+                title="Changement de nom refusé",
+                message=f"Votre demande de changement de nom a été refusée par l'administration. Motif : {notes or 'Non spécifié'}",
+                notification_type=Notification.NotificationType.SYSTEM
+            )
+        else:
+            return Response({'error': 'Action invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        req.save()
+        return Response({'message': f'Demande {req.status}.'}, status=status.HTTP_200_OK)
+

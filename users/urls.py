@@ -28,6 +28,7 @@ from .views import (
     PasswordResetRequestView,
     PasswordResetVerifyOTPView,
     PasswordResetConfirmView,
+    RequestProfileUpdateView,
 )
 
 urlpatterns = [
@@ -52,6 +53,7 @@ urlpatterns = [
     # ── 🦎 Profil Utilisateur (Endpoint Caméléon) ─────────────────────────────
     # Rappel : S'adapte tout seul au rôle de la personne connectée !
     path('me/', UnifiedProfileView.as_view(), name='user_profile'),
+    path('request-profile-update/', RequestProfileUpdateView.as_view(), name='request_profile_update'),
 
     # ── 🔑 Gestion des mots de passe ──────────────────────────────────────────
     # 1. Pour un utilisateur déjà connecté (Dans les paramètres de son profil)

@@ -1,6 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AdminUserManagementViewSet, AuditLogViewSet, AdminDashboardView, AdminAppointmentListView
+from .views import (
+    AdminUserManagementViewSet, 
+    AuditLogViewSet, 
+    AdminDashboardView, 
+    AdminAppointmentListView,
+    AdminProfileUpdateListView,
+    AdminProfileUpdateActionView
+)
 
 router = DefaultRouter()
 router.register(r'users', AdminUserManagementViewSet, basename='admin-users')
@@ -11,4 +18,6 @@ urlpatterns = [
     path('dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('stats/',     AdminDashboardView.as_view(), name='admin-stats'),
     path('appointments/', AdminAppointmentListView.as_view(), name='admin-appointments'),
-]
+    path('profile-updates/', AdminProfileUpdateListView.as_view(), name='admin_profile_updates'),
+    path('profile-updates/<int:pk>/action/', AdminProfileUpdateActionView.as_view(), name='admin_profile_update_action'),
+]
