@@ -137,23 +137,14 @@ def check_symptom_alert(symptoms_fr: str, symptoms_en: str) -> dict:
 
 def format_alert_for_response(alert: dict, lang: str = "fr") -> str:
     """
-    Formate le message d'alerte à injecter EN TÊTE de la réponse de l'IA.
-
-    Usage dans ton view/service :
-        alert = check_symptom_alert(symptoms_fr, symptoms_en)
-        prefix = format_alert_for_response(alert, lang="fr")
-        final_response = prefix + "\\n\\n" + ai_response
+    Retourne un événement SSE structuré de type "alert" (JSON).
+    Le frontend parse ce JSON et affiche le bandeau d'urgence séparément
+    du texte de l'IA — les === et le texte brut ne s'affichent plus.
     """
+    import json
     msg = alert["message_fr"] if lang == "fr" else alert["message_en"]
     level = alert["level"]
-
-    if level == "critical":
-        separator = "=" * 50
-        return f"{separator}\\n{msg}\\n{separator}"
-    elif level == "moderate":
-        return f"{msg}"
-    else:
-        return f"{msg}"
+    return json.dumps({"type": "alert", "level": level, "message": msg}, ensure_ascii=False)
 
 
 # ============================================================

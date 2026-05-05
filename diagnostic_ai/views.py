@@ -183,23 +183,28 @@ def _get_patient(request):
         return None
 
 
-def _save_session(patient, lang: str, user_msg: str, bot_response: str) -> None:
+def _save_session(patient, lang: str, user_msg: str, bot_response: str, session_id: int = None):
     if patient is None:
-        return
+        return None
     try:
-        session, created = ConversationSession.objects.get_or_create(
-            patient   = patient,
-            is_active = True,
-            lang      = lang,
-            defaults  = {"title": user_msg[:60], "history": []},
-        )
+        if session_id:
+            try:
+                session = ConversationSession.objects.get(id=session_id, patient=patient)
+            except ConversationSession.DoesNotExist:
+                session = ConversationSession.objects.create(
+                    patient=patient, lang=lang, title=user_msg[:60], history=[],
+                )
+        else:
+            session = ConversationSession.objects.create(
+                patient=patient, lang=lang, title=user_msg[:60], history=[],
+            )
         session.add_message(role="user",      content=user_msg)
         session.add_message(role="assistant", content=bot_response)
-        if created:
-            session.auto_title()
         logger.info("Session #%d mise à jour (%d messages)", session.id, session.message_count)
+        return session.id
     except Exception as e:
         logger.warning("Session save error (non bloquant): %s", e)
+        return None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -402,12 +407,15 @@ class ChatStreamView(APIView):
                     yield f"data: {json.dumps({'type': 'interaction_id', 'id': interaction.id}, ensure_ascii=False)}\n\n"
 
                     if not needs_details and patient:
-                        _save_session(
+                        saved_sid = _save_session(
                             patient      = patient,
                             lang         = lang,
                             user_msg     = data["symptoms"],
                             bot_response = full_response,
+                            session_id   = data.get("session_id"),
                         )
+                        if saved_sid:
+                            yield f"data: {json.dumps({'type': 'session_saved', 'session_id': saved_sid}, ensure_ascii=False)}\n\n"
                 except Exception:
                     logger.exception("Erreur création interaction après stream")
 

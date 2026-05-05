@@ -301,7 +301,6 @@ class QRImageView(APIView):
     Bypasse le content-negotiation DRF qui forcerait un rendu JSON.
     """
     permission_classes = [IsAuthenticated, IsPrescriptionOwner]
-    renderer_classes = [] # Bypasser les renderers DRF pour envoyer du brut
 
     def get(self, request, pk):
         print(f"DEBUG: QRImageView pour {pk}")

@@ -290,6 +290,13 @@ def handle_followup_stream(symptoms: str, lang: str, history: list):
 
     full_response = ""
     for chunk in generate_conversational_stream(symptoms, lang, history):
+        try:
+            parsed = _json.loads(chunk)
+            if parsed.get("type") == "alert":
+                yield f"data: {_json.dumps(parsed, ensure_ascii=False)}\n\n"
+                continue
+        except Exception:
+            pass
         full_response += chunk
         yield f"data: {_json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"
 
@@ -606,6 +613,13 @@ def process_chat_stream(
             prompt_style    = params.get("prompt_style", 2),
             medical_context = medical_context,   # ← NOUVEAU
         ):
+            try:
+                parsed = _json.loads(chunk)
+                if parsed.get("type") == "alert":
+                    yield f"data: {_json.dumps(parsed, ensure_ascii=False)}\n\n"
+                    continue
+            except Exception:
+                pass
             full_response += chunk
             yield f"data: {_json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"
 
