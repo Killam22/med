@@ -200,3 +200,41 @@ class DocumentFile(models.Model):
             self.file_name = self.file.name
             self.file_size = self.file.size
         super().save(*args, **kwargs)
+
+
+class PatientLinkRequest(models.Model):
+    """Demande d'un médecin pour accéder au profil d'un patient ayant un compte."""
+    STATUS_CHOICES = [
+        ('pending',  'En attente'),
+        ('accepted', 'Accepté'),
+        ('refused',  'Refusé'),
+    ]
+    doctor  = models.ForeignKey('doctors.Doctor', on_delete=models.CASCADE, related_name='link_requests_sent')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='link_requests')
+    status  = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('doctor', 'patient')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Demande Dr.{self.doctor.user.last_name} → {self.patient.user.get_full_name()} ({self.status})"
+
+
+class ExternalPatient(models.Model):
+    """Patient sans compte, ajouté manuellement par un médecin."""
+    doctor     = models.ForeignKey('doctors.Doctor', on_delete=models.CASCADE, related_name='external_patients')
+    first_name = models.CharField(max_length=100)
+    last_name  = models.CharField(max_length=100)
+    age        = models.PositiveIntegerField(null=True, blank=True)
+    phone      = models.CharField(max_length=20, blank=True)
+    condition  = models.CharField(max_length=200, blank=True)
+    notes      = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} (patient externe)"

@@ -3,9 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from django.utils import timezone
-from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, SymptomAnalysis
+from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, SymptomAnalysis, PatientLinkRequest, ExternalPatient
 from .serializers import (
     PatientSerializer,
+    PatientSearchSerializer,
+    PatientLinkRequestSerializer,
+    ExternalPatientSerializer,
     MedicalProfileSerializer,
     AllergySerializer,
     AntecedentSerializer,
@@ -14,7 +17,7 @@ from .serializers import (
     SymptomAnalysisSerializer,
 )
 
-from appointments.permissions import IsPatient
+from appointments.permissions import IsPatient, IsDoctor
 
 class PatientProfileView(generics.RetrieveUpdateAPIView):
     """GET / PUT /api/patients/profile/ — own patient profile."""
@@ -160,3 +163,128 @@ class PatientDashboardView(APIView):
             "caregiver": active_care.caretaker.user.get_full_name() if active_care else None,
         }
         return Response(data)
+
+
+# ── Patient search (doctor side) ──────────────────────────────────────────────
+
+class PatientSearchView(generics.ListAPIView):
+    """GET /api/patients/search/?q=... — médecin recherche un patient par nom/email."""
+    serializer_class = PatientSearchSerializer
+    permission_classes = [IsDoctor]
+
+    def get_queryset(self):
+        from django.db.models import Q
+        q = self.request.query_params.get('q', '').strip()
+        if len(q) < 2:
+            return Patient.objects.none()
+        return Patient.objects.filter(
+            Q(user__first_name__icontains=q) |
+            Q(user__last_name__icontains=q) |
+            Q(user__email__icontains=q)
+        ).select_related('user')[:15]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+
+# ── Doctor → Patient link requests ───────────────────────────────────────────
+
+class DoctorSendLinkRequestView(APIView):
+    """POST /api/patients/link-requests/ — médecin envoie une demande d'accès à un patient."""
+    permission_classes = [IsDoctor]
+
+    def post(self, request):
+        patient_id = request.data.get('patient_id')
+        if not patient_id:
+            return Response({"detail": "patient_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        doctor = request.user.doctor_profile
+        link_req, created = PatientLinkRequest.objects.get_or_create(
+            doctor=doctor, patient=patient, defaults={'status': 'pending'}
+        )
+        if not created:
+            if link_req.status == 'pending':
+                return Response({"detail": "Demande déjà envoyée."}, status=status.HTTP_400_BAD_REQUEST)
+            if link_req.status == 'accepted':
+                return Response({"detail": "Ce patient est déjà lié à votre compte."}, status=status.HTTP_400_BAD_REQUEST)
+            # statut 'refused' → on réinitialise
+            link_req.status = 'pending'
+            link_req.save()
+
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=patient.user,
+            title="Demande d'accès médecin",
+            message=f"Dr. {request.user.get_full_name()} souhaite accéder à votre profil médical.",
+            notification_type=Notification.NotificationType.APPOINTMENT
+        )
+        return Response({"detail": "Demande envoyée.", "id": link_req.id}, status=status.HTTP_201_CREATED)
+
+
+class PatientLinkRequestListView(generics.ListAPIView):
+    """GET /api/patients/my-link-requests/ — patient consulte les demandes en attente."""
+    serializer_class = PatientLinkRequestSerializer
+    permission_classes = [IsPatient]
+
+    def get_queryset(self):
+        return PatientLinkRequest.objects.filter(
+            patient=self.request.user.patient_profile,
+            status='pending'
+        ).select_related('doctor__user')
+
+
+class PatientRespondLinkRequestView(APIView):
+    """POST /api/patients/link-requests/{id}/respond/ — patient accepte ou refuse."""
+    permission_classes = [IsPatient]
+
+    def post(self, request, pk):
+        try:
+            link_req = PatientLinkRequest.objects.get(pk=pk, patient=request.user.patient_profile)
+        except PatientLinkRequest.DoesNotExist:
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get('action')
+        if action not in ('accept', 'refuse'):
+            return Response({"detail": "action doit être 'accept' ou 'refuse'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        link_req.status = 'accepted' if action == 'accept' else 'refused'
+        link_req.save()
+
+        if action == 'accept':
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=link_req.doctor.user,
+                title="Demande acceptée",
+                message=f"{request.user.get_full_name()} a accepté votre demande d'accès au profil.",
+                notification_type=Notification.NotificationType.APPOINTMENT
+            )
+        return Response({"detail": "Réponse enregistrée."}, status=status.HTTP_200_OK)
+
+
+# ── External patients (sans compte) ──────────────────────────────────────────
+
+class ExternalPatientView(generics.ListCreateAPIView):
+    """GET/POST /api/patients/external/ — médecin gère ses patients sans compte."""
+    serializer_class = ExternalPatientSerializer
+    permission_classes = [IsDoctor]
+
+    def get_queryset(self):
+        return ExternalPatient.objects.filter(doctor=self.request.user.doctor_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(doctor=self.request.user.doctor_profile)
+
+
+class ExternalPatientDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/DELETE /api/patients/external/{id}/"""
+    serializer_class = ExternalPatientSerializer
+    permission_classes = [IsDoctor]
+
+    def get_queryset(self):
+        return ExternalPatient.objects.filter(doctor=self.request.user.doctor_profile)

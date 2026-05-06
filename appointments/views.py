@@ -328,6 +328,39 @@ class CompleteAppointmentView(APIView):
         return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
 
 
+class DoctorCancelAppointmentView(APIView):
+    """POST /api/doctor/appointments/{id}/cancel/ — médecin annule un RDV et notifie le patient."""
+    permission_classes = [IsDoctor]
+
+    def post(self, request, pk):
+        try:
+            appt = Appointment.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except Appointment.DoesNotExist:
+            return Response({"detail": "Introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if appt.status not in ('pending', 'confirmed'):
+            return Response(
+                {"detail": "Seuls les rendez-vous en attente ou confirmés peuvent être annulés."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        reason = request.data.get('reason', '').strip()
+        appt.cancel()
+        from notifications.models import Notification
+        msg = (
+            f"Votre rendez-vous du {appt.date.strftime('%d/%m/%Y')} à "
+            f"{appt.start_time.strftime('%H:%M')} avec Dr. {appt.doctor.user.last_name} a été annulé."
+        )
+        if reason:
+            msg += f" Motif : {reason}"
+        Notification.objects.create(
+            user=appt.patient.user,
+            title="Rendez-vous annulé par le médecin",
+            message=msg,
+            notification_type=Notification.NotificationType.APPOINTMENT
+        )
+        return Response({"detail": "Annulé."}, status=status.HTTP_200_OK)
+
+
 
 # ── Review Views ──────────────────────────────────────────────────────────────
 

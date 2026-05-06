@@ -146,6 +146,7 @@ class DoctorDashboardView(APIView):
         today_appointments = Appointment.objects.filter(doctor__user=user, date=today)
         pending_appointments = Appointment.objects.filter(doctor__user=user, status='pending')
 
+        doctor_profile = getattr(user, 'doctor_profile', None)
         data = {
             "kpis": {
                 "today_consultations": today_appointments.exclude(status='cancelled').count(),
@@ -153,6 +154,8 @@ class DoctorDashboardView(APIView):
                     doctor__user=user
                 ).values('patient').distinct().count(),
                 "pending_requests": pending_appointments.count(),
+                "avg_rating": float(doctor_profile.rating) if doctor_profile and doctor_profile.rating else None,
+                "total_reviews": doctor_profile.total_reviews if doctor_profile else 0,
             },
             "todays_schedule": [
                 {
