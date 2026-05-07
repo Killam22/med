@@ -208,6 +208,7 @@ class PatientLinkRequest(models.Model):
         ('pending',  'En attente'),
         ('accepted', 'Accepté'),
         ('refused',  'Refusé'),
+        ('revoked',  'Résiliée'),   # médecin a mis fin à la liaison
     ]
     doctor  = models.ForeignKey('doctors.Doctor', on_delete=models.CASCADE, related_name='link_requests_sent')
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='link_requests')

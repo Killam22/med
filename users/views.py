@@ -21,7 +21,7 @@ from django.core.exceptions import ValidationError
 from django.core import signing
 
 from .models import EmailOTP
-from .utils import send_otp_email, notify_admins_new_registration
+from .utils import send_otp_email, send_welcome_email, notify_admins_new_registration
 from .serializers import (
     CustomTokenObtainPairSerializer,
     RegisterPatientSerializer,
@@ -70,6 +70,10 @@ class LoginRateThrottle(AnonRateThrottle):
     """Limite à 5 tentatives/minute (configurer 'login' dans DEFAULT_THROTTLE_RATES)."""
     scope = 'login'
 
+class OtpSendThrottle(AnonRateThrottle):
+    """Limite l'envoi d'OTP à 5/minute par IP pour éviter le spam."""
+    scope = 'otp_send'
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Endpoint JWT enrichi (role, full_name, email) + protégé par le LoginRateThrottle."""
     serializer_class = CustomTokenObtainPairSerializer
@@ -82,8 +86,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 class RegisterPatientView(generics.CreateAPIView):
     """
-    Crée un Patient avec is_active=False et envoie un OTP par email.
-    Le compte n'est activable que via VerifyRegisterOTPView.
+    Crée un Patient avec is_active=True et verification_status='pending'.
+    Le dossier attend la validation Admin (pas d'OTP post-inscription pour les patients).
     """
     queryset = User.objects.all()
     serializer_class = RegisterPatientSerializer
@@ -91,17 +95,18 @@ class RegisterPatientView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
-        send_otp_email(user.email, otp_obj.otp, purpose='register')
-        notify_admins_new_registration(user)
+        try:
+            notify_admins_new_registration(user)
+        except Exception:
+            pass
 
 
 # ── 🩺 INSCRIPTION DOCTEUR ─────────────────────────────────────────────────
 
 class RegisterDoctorView(generics.CreateAPIView):
     """
-    Crée un Médecin avec is_active=False et envoie un OTP par email.
-    Le statut sera 'pending' en attendant la validation Admin.
+    Crée un Médecin avec is_active=False et verification_status='pending'.
+    L'activation est déclenchée par l'Admin (pas d'OTP post-inscription).
     """
     queryset = User.objects.all()
     serializer_class = RegisterDoctorSerializer
@@ -109,17 +114,18 @@ class RegisterDoctorView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
-        send_otp_email(user.email, otp_obj.otp, purpose='register')
-        notify_admins_new_registration(user)
+        try:
+            notify_admins_new_registration(user)
+        except Exception:
+            pass
 
 
 # ── 💊 INSCRIPTION PHARMACIEN ──────────────────────────────────────────────
 
 class RegisterPharmacistView(generics.CreateAPIView):
     """
-    Crée un Pharmacien et sa Pharmacie avec is_active=False.
-    Envoie un OTP par email. Statut en attente de validation Admin.
+    Crée un Pharmacien et sa Pharmacie avec is_active=False et verification_status='pending'.
+    L'activation est déclenchée par l'Admin (pas d'OTP post-inscription).
     """
     queryset = User.objects.all()
     serializer_class = RegisterPharmacistSerializer
@@ -127,17 +133,18 @@ class RegisterPharmacistView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
-        send_otp_email(user.email, otp_obj.otp, purpose='register')
-        notify_admins_new_registration(user)
+        try:
+            notify_admins_new_registration(user)
+        except Exception:
+            pass
 
 
 # ── 🏠 INSCRIPTION GARDE-MALADE (CARETAKER) ────────────────────────────────
 
 class RegisterCaretakerView(generics.CreateAPIView):
     """
-    Crée un Garde-malade avec is_active=False et envoie un OTP par email.
-    Statut en attente de validation Admin.
+    Crée un Garde-malade avec is_active=False et verification_status='pending'.
+    L'activation est déclenchée par l'Admin (pas d'OTP post-inscription).
     """
     queryset = User.objects.all()
     serializer_class = RegisterCaretakerSerializer
@@ -145,9 +152,10 @@ class RegisterCaretakerView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-        otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_REGISTER)
-        send_otp_email(user.email, otp_obj.otp, purpose='register')
-        notify_admins_new_registration(user)
+        try:
+            notify_admins_new_registration(user)
+        except Exception:
+            pass
 
 
 class VerifyRegisterOTPView(APIView):
@@ -208,6 +216,8 @@ class VerifyRegisterOTPView(APIView):
         user.is_active = True
         user.save(update_fields=['is_active'])
 
+        send_welcome_email(user)
+
         # Génère les tokens JWT directement
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -241,6 +251,7 @@ class SendRegisterOTPView(APIView):
     Utilisé côté front avant l'étape 2 du formulaire d'inscription.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [OtpSendThrottle]
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
@@ -343,7 +354,7 @@ class PasswordResetRequestView(APIView):
 
         try:
             otp_obj = EmailOTP.generate(email=user.email, purpose=EmailOTP.PURPOSE_RESET)
-            send_otp_email(user.email, otp_obj.otp, purpose='reset')
+            send_otp_email(user.email, otp_obj.otp, purpose='reset', first_name=user.first_name, last_name=user.last_name)
         except Exception:
             pass  # OTP visible dans la console (backend console.EmailBackend en dev)
 

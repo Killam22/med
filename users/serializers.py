@@ -27,9 +27,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['role'] = self.user.role
-        data['full_name'] = self.user.get_full_name()
-        data['email'] = self.user.email
+        user = self.user
+        vs = getattr(user, 'verification_status', None)
+        if vs == 'pending':
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed(
+                'Votre dossier est en cours de validation par notre équipe. '
+                'Vous recevrez un e-mail dès qu\'il sera approuvé.'
+            )
+        if vs == 'rejected':
+            from rest_framework.exceptions import AuthenticationFailed
+            raise AuthenticationFailed(
+                'Votre inscription a été refusée. Veuillez contacter le support.'
+            )
+        data['role'] = user.role
+        data['full_name'] = user.get_full_name()
+        data['email'] = user.email
         return data
 
 
@@ -88,7 +101,7 @@ class RegisterPatientSerializer(RegisterUserSerializer):
     def create(self, validated_data):
         blood_group = validated_data.pop('blood_group', '') or ''
         validated_data['role'] = 'patient'
-        validated_data['verification_status'] = 'verified'
+        validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = True
         validated_data.setdefault('username', validated_data['email'])
         user = super().create(validated_data)
@@ -315,14 +328,21 @@ class BaseUserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'role', 'full_name', 'first_name', 'last_name', 'phone', 'sex', 
+            'id', 'email', 'role', 'full_name', 'first_name', 'last_name', 'phone', 'sex',
             'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
             'verification_status', 'is_active'
         ]
-        read_only_fields = ['id', 'email', 'role', 'full_name', 'verification_status', 'is_active']
+        read_only_fields = ['id', 'role', 'full_name', 'verification_status', 'is_active']
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
+
+    def validate_email(self, value):
+        user = self.instance
+        if value and user and value != user.email:
+            if User.objects.filter(email=value).exclude(pk=user.pk).exists():
+                raise serializers.ValidationError("Un compte avec cet email existe déjà.")
+        return value
 
 # Import local pour éviter les imports circulaires avec l'app patients
 from patients.serializers import PatientSerializer 
@@ -365,6 +385,9 @@ class PatientUnifiedSerializer(BaseUserUpdateSerializer):
 
 class ProfileUpdateRequestSerializer(serializers.ModelSerializer):
     user_email = serializers.ReadOnlyField(source='user.email')
+    user_full_name = serializers.ReadOnlyField(source='user.get_full_name')
+    old_first_name = serializers.ReadOnlyField(source='user.first_name')
+    old_last_name = serializers.ReadOnlyField(source='user.last_name')
     full_name_requested = serializers.SerializerMethodField()
 
     class Meta:

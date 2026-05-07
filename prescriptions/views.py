@@ -170,18 +170,23 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
 class QuickPrescriptionView(APIView):
     """
     POST /api/prescriptions/quick/
-    Médecin : crée une ordonnance "rapide" sans rendez-vous parent en générant
-    automatiquement une consultation détachée.
+    Médecin : crée une ordonnance "rapide" sans rendez-vous parent.
 
-    Body :
+    Body (patient avec compte) :
     {
       "patient_id": <int>,
       "chief_complaint": "Renouvellement",
       "notes": "...",
-      "valid_until": "2026-07-30",   # optionnel
-      "items": [
-        {"drug_name": "Metformin", "dosage": "500mg", "frequency": "2x_day", "duration": "30 jours"}
-      ]
+      "valid_until": "2026-07-30",
+      "items": [{"drug_name": "Metformin", "dosage": "500mg", "frequency": "2x_day", "duration": "30 jours"}]
+    }
+
+    Body (patient sans compte) :
+    {
+      "external_patient_id": <int>,
+      "chief_complaint": "Ordonnance rapide",
+      "notes": "...",
+      "items": [...]
     }
     """
     permission_classes = [IsAuthenticated, IsDoctor]
@@ -190,31 +195,43 @@ class QuickPrescriptionView(APIView):
         from datetime import timedelta
         from django.utils import timezone
         from consultations.models import Consultation
-        from patients.models import Patient
+        from patients.models import Patient, ExternalPatient
         from notifications.models import Notification
 
-        patient_id = request.data.get('patient_id')
-        items_data = request.data.get('items') or []
-        if not patient_id:
-            return Response({'error': 'patient_id est requis.'}, status=400)
+        patient_id          = request.data.get('patient_id')
+        external_patient_id = request.data.get('external_patient_id')
+        items_data          = request.data.get('items') or []
+
+        if not patient_id and not external_patient_id:
+            return Response({'error': 'patient_id ou external_patient_id est requis.'}, status=400)
         if not items_data:
             return Response({'error': 'Au moins un médicament est requis.'}, status=400)
 
-        try:
-            patient = Patient.objects.get(pk=patient_id)
-        except Patient.DoesNotExist:
-            return Response({'error': 'Patient introuvable.'}, status=404)
-
         doctor = request.user.doctor_profile
-        chief = request.data.get('chief_complaint') or 'Ordonnance rapide'
-        notes = request.data.get('notes') or ''
+        chief  = request.data.get('chief_complaint') or 'Ordonnance rapide'
+        notes  = request.data.get('notes') or ''
         valid_until = request.data.get('valid_until')
         if not valid_until:
             valid_until = (timezone.now().date() + timedelta(days=90)).isoformat()
 
+        patient          = None
+        external_patient = None
+
+        if patient_id:
+            try:
+                patient = Patient.objects.get(pk=patient_id)
+            except Patient.DoesNotExist:
+                return Response({'error': 'Patient introuvable.'}, status=404)
+        else:
+            try:
+                external_patient = ExternalPatient.objects.get(pk=external_patient_id, doctor=doctor)
+            except ExternalPatient.DoesNotExist:
+                return Response({'error': 'Patient externe introuvable.'}, status=404)
+
         consultation = Consultation.objects.create(
             doctor=doctor,
             patient=patient,
+            external_patient=external_patient,
             consultation_type=Consultation.ConsultationType.IN_PERSON,
             status=Consultation.Status.COMPLETED,
             chief_complaint=chief,
@@ -240,14 +257,16 @@ class QuickPrescriptionView(APIView):
                 quantity=int(it.get('quantity', 1)),
             )
 
-        # QR token + notification patient
         QRToken.objects.create(prescription=prescription)
-        Notification.objects.create(
-            user=patient.user,
-            title="Nouvelle ordonnance",
-            message=f"Le Dr. {doctor.user.last_name} vient de vous délivrer une ordonnance.",
-            notification_type=Notification.NotificationType.SYSTEM,
-        )
+
+        # Notifier uniquement les patients avec un compte
+        if patient:
+            Notification.objects.create(
+                user=patient.user,
+                title="Nouvelle ordonnance",
+                message=f"Le Dr. {doctor.user.last_name} vient de vous délivrer une ordonnance.",
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
 
         return Response(PrescriptionSerializer(prescription).data, status=status.HTTP_201_CREATED)
 

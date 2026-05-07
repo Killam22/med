@@ -13,8 +13,11 @@ from .views import (
     DoctorSendLinkRequestView,
     PatientLinkRequestListView,
     PatientRespondLinkRequestView,
+    DoctorUnlinkPatientView,
     ExternalPatientView,
     ExternalPatientDetailView,
+    ExternalPatientPrescriptionsView,
+    ExternalPatientConsultationsView,
 )
 urlpatterns = [
     path('profile/',          PatientProfileView.as_view(),         name='patient_profile'),
@@ -31,7 +34,11 @@ urlpatterns = [
     path('link-requests/',                       DoctorSendLinkRequestView.as_view(),     name='doctor-send-link-request'),
     path('my-link-requests/',                    PatientLinkRequestListView.as_view(),    name='patient-link-requests'),
     path('link-requests/<int:pk>/respond/',      PatientRespondLinkRequestView.as_view(), name='patient-respond-link-request'),
+    # Résiliation de liaison
+    path('<int:patient_id>/unlink/',                     DoctorUnlinkPatientView.as_view(),          name='doctor-unlink-patient'),
     # Patients sans compte
-    path('external/',         ExternalPatientView.as_view(),        name='external-patients'),
-    path('external/<int:pk>/', ExternalPatientDetailView.as_view(), name='external-patient-detail'),
+    path('external/',                                    ExternalPatientView.as_view(),              name='external-patients'),
+    path('external/<int:pk>/',                           ExternalPatientDetailView.as_view(),        name='external-patient-detail'),
+    path('external/<int:pk>/prescriptions/',             ExternalPatientPrescriptionsView.as_view(), name='external-patient-prescriptions'),
+    path('external/<int:pk>/consultations/',             ExternalPatientConsultationsView.as_view(), name='external-patient-consultations'),
 ]

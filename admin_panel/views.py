@@ -60,11 +60,15 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
             user.caretaker_profile.is_verified = True
             user.caretaker_profile.save()
 
-        # Notification au professionnel
+        # Email de bienvenue (tous rôles)
+        from users.utils import send_welcome_email
+        send_welcome_email(user)
+
+        # Notification à l'utilisateur
         Notification.objects.create(
             user=user,
             title="Compte approuvé !",
-            message="Vos documents officiels ont été validés par l'administration. Votre compte est maintenant pleinement actif sur MedSmart.",
+            message="Votre dossier a été validé par l'administration. Vous pouvez maintenant vous connecter sur MedSmart.",
             notification_type=Notification.NotificationType.SYSTEM
         )
 
@@ -197,7 +201,6 @@ class AdminDashboardView(APIView):
                 "verified_doctors": users.filter(role='doctor', verification_status='verified').count(),
                 "active_pharmacies": users.filter(role='pharmacist').count(),
                 "pending_validations": users.filter(
-                    role__in=['doctor', 'pharmacist', 'caretaker'],
                     verification_status='pending'
                 ).count(),
                 "total_appointments": Appointment.objects.count(),

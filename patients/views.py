@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from django.utils import timezone
 from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, SymptomAnalysis, PatientLinkRequest, ExternalPatient
+from appointments.permissions import IsPatient, IsDoctor
 from .serializers import (
     PatientSerializer,
     PatientSearchSerializer,
@@ -16,8 +17,6 @@ from .serializers import (
     MedicalDocumentSerializer,
     SymptomAnalysisSerializer,
 )
-
-from appointments.permissions import IsPatient, IsDoctor
 
 class PatientProfileView(generics.RetrieveUpdateAPIView):
     """GET / PUT /api/patients/profile/ — own patient profile."""
@@ -92,18 +91,38 @@ class SymptomAnalysisListView(generics.ListCreateAPIView):
 
 
 class DoctorPatientsListView(generics.ListAPIView):
-    """GET /api/patients/my-patients/ — Liste des patients ayant un RDV avec le médecin."""
+    """GET /api/patients/my-patients/ — Patients liés au médecin (lien accepté ou RDV)."""
     serializer_class = PatientSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
         from rest_framework.exceptions import PermissionDenied
         if getattr(user, 'role', None) != 'doctor':
             raise PermissionDenied("Accès réservé aux médecins.")
-        
-        # Récupère tous les patients liés aux rendez-vous de ce médecin (sans doublons)
-        return Patient.objects.filter(appointments__doctor__user=user).distinct()
+
+        doctor = user.doctor_profile
+
+        # Patients dont le médecin a révoqué la liaison — on les exclut partout
+        revoked_ids = PatientLinkRequest.objects.filter(
+            doctor=doctor, status='revoked'
+        ).values_list('patient_id', flat=True)
+
+        # Patients ayant accepté la demande de liaison
+        linked_ids = PatientLinkRequest.objects.filter(
+            doctor=doctor, status='accepted'
+        ).values_list('patient_id', flat=True)
+
+        # Patients ayant eu un rendez-vous avec ce médecin (hors révoqués)
+        appt_ids = Patient.objects.filter(
+            appointments__doctor=doctor
+        ).exclude(id__in=revoked_ids).values_list('id', flat=True)
+
+        from django.db.models import Q
+        return Patient.objects.filter(
+            Q(id__in=linked_ids) | Q(id__in=appt_ids)
+        ).distinct()
 
 
 class PatientDashboardView(APIView):
@@ -171,6 +190,7 @@ class PatientSearchView(generics.ListAPIView):
     """GET /api/patients/search/?q=... — médecin recherche un patient par nom/email."""
     serializer_class = PatientSearchSerializer
     permission_classes = [IsDoctor]
+    pagination_class = None
 
     def get_queryset(self):
         from django.db.models import Q
@@ -231,6 +251,7 @@ class PatientLinkRequestListView(generics.ListAPIView):
     """GET /api/patients/my-link-requests/ — patient consulte les demandes en attente."""
     serializer_class = PatientLinkRequestSerializer
     permission_classes = [IsPatient]
+    pagination_class = None
 
     def get_queryset(self):
         return PatientLinkRequest.objects.filter(
@@ -269,10 +290,39 @@ class PatientRespondLinkRequestView(APIView):
 
 # ── External patients (sans compte) ──────────────────────────────────────────
 
+class DoctorUnlinkPatientView(APIView):
+    """
+    POST /api/patients/{patient_id}/unlink/
+    Médecin : résilie la liaison avec un patient (revoke).
+    Si aucun PatientLinkRequest n'existe (liaison via RDV), on en crée un avec status=revoked
+    pour bloquer le patient des listes futures.
+    """
+    permission_classes = [IsDoctor]
+
+    def post(self, request, patient_id):
+        try:
+            patient = Patient.objects.get(pk=patient_id)
+        except Patient.DoesNotExist:
+            return Response({'error': 'Patient introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        doctor = request.user.doctor_profile
+        link_req, _ = PatientLinkRequest.objects.get_or_create(
+            doctor=doctor,
+            patient=patient,
+            defaults={'status': 'revoked'}
+        )
+        if link_req.status != 'revoked':
+            link_req.status = 'revoked'
+            link_req.save()
+
+        return Response({'detail': 'Liaison résiliée.'}, status=status.HTTP_200_OK)
+
+
 class ExternalPatientView(generics.ListCreateAPIView):
     """GET/POST /api/patients/external/ — médecin gère ses patients sans compte."""
     serializer_class = ExternalPatientSerializer
     permission_classes = [IsDoctor]
+    pagination_class = None
 
     def get_queryset(self):
         return ExternalPatient.objects.filter(doctor=self.request.user.doctor_profile)
@@ -288,3 +338,91 @@ class ExternalPatientDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return ExternalPatient.objects.filter(doctor=self.request.user.doctor_profile)
+
+
+class ExternalPatientPrescriptionsView(APIView):
+    """
+    GET /api/patients/external/{id}/prescriptions/
+    Médecin : liste les ordonnances d'un patient sans compte.
+    """
+    permission_classes = [IsDoctor]
+
+    def get(self, request, pk):
+        try:
+            external_patient = ExternalPatient.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except ExternalPatient.DoesNotExist:
+            return Response({'error': 'Patient externe introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from prescriptions.models import Prescription
+        from prescriptions.serializers import PrescriptionSerializer
+        prescriptions = Prescription.objects.filter(
+            consultation__external_patient=external_patient
+        ).select_related('consultation__doctor').prefetch_related('items', 'qr_token')
+        return Response(PrescriptionSerializer(prescriptions, many=True).data)
+
+
+class ExternalPatientConsultationsView(APIView):
+    """
+    GET  /api/patients/external/{id}/consultations/
+    POST /api/patients/external/{id}/consultations/
+    Médecin : liste et crée des comptes rendus pour un patient sans compte.
+    """
+    permission_classes = [IsDoctor]
+
+    def get(self, request, pk):
+        try:
+            external_patient = ExternalPatient.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except ExternalPatient.DoesNotExist:
+            return Response({'error': 'Patient externe introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from consultations.models import Consultation
+        consultations = Consultation.objects.filter(
+            external_patient=external_patient
+        ).select_related('doctor').order_by('-consulted_at')
+
+        data = [
+            {
+                'id':              str(c.id),
+                'date':            c.consulted_at.date().isoformat(),
+                'chief_complaint': c.chief_complaint,
+                'diagnosis':       c.diagnosis,
+                'treatment_plan':  c.treatment_plan,
+                'doctor_notes':    c.doctor_notes,
+                'status':          c.status,
+            }
+            for c in consultations
+        ]
+        return Response(data)
+
+    def post(self, request, pk):
+        try:
+            external_patient = ExternalPatient.objects.get(pk=pk, doctor=request.user.doctor_profile)
+        except ExternalPatient.DoesNotExist:
+            return Response({'error': 'Patient externe introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from consultations.models import Consultation
+        from django.utils import timezone
+
+        doctor = request.user.doctor_profile
+        consultation = Consultation.objects.create(
+            doctor=doctor,
+            external_patient=external_patient,
+            consultation_type=Consultation.ConsultationType.IN_PERSON,
+            status=Consultation.Status.COMPLETED,
+            chief_complaint=request.data.get('chief_complaint', ''),
+            history=request.data.get('history', ''),
+            examination=request.data.get('examination', ''),
+            diagnosis=request.data.get('diagnosis', ''),
+            treatment_plan=request.data.get('treatment_plan', ''),
+            doctor_notes=request.data.get('doctor_notes', ''),
+            consulted_at=timezone.now(),
+        )
+        return Response({
+            'id':              str(consultation.id),
+            'date':            consultation.consulted_at.date().isoformat(),
+            'chief_complaint': consultation.chief_complaint,
+            'diagnosis':       consultation.diagnosis,
+            'treatment_plan':  consultation.treatment_plan,
+            'doctor_notes':    consultation.doctor_notes,
+            'status':          consultation.status,
+        }, status=status.HTTP_201_CREATED)

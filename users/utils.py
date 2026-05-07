@@ -1,39 +1,80 @@
 # users/utils.py
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.conf import settings
 
+_FROM_EMAIL = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@medsmart.dz')
+_APP_URL = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
 
-def send_otp_email(email, otp, purpose):
+
+def send_otp_email(email, otp, purpose, first_name='', last_name=''):
     """
     Sends a 6-digit OTP to the given email address.
     purpose: 'register' | 'reset'
     """
-    if purpose == 'register':
-        subject = "Verify your MedSmart account"
-        body = (
-            f"Welcome to MedSmart!\n\n"
-            f"Your verification code is:\n\n"
-            f"    {otp}\n\n"
-            f"This code expires in 10 minutes.\n"
-            f"If you did not create an account, ignore this email."
-        )
-    else:
-        subject = "MedSmart password reset code"
-        body = (
-            f"You requested a password reset on MedSmart.\n\n"
-            f"Your reset code is:\n\n"
-            f"    {otp}\n\n"
-            f"This code expires in 10 minutes.\n"
-            f"If you did not request this, ignore this email."
-        )
+    context = {
+        'prenom': first_name,
+        'nom': last_name,
+        'email': email,
+        'otp_code': otp,
+        'app_url': _APP_URL,
+    }
 
-    send_mail(
+    if purpose == 'register':
+        subject = "MedSmart — Vérification de votre compte"
+        text_body = (
+            f"Bonjour {first_name} {last_name},\n\n"
+            f"Votre code de vérification MedSmart est : {otp}\n\n"
+            f"Ce code expire dans 10 minutes.\n"
+            f"Si vous n'avez pas créé de compte, ignorez cet e-mail."
+        )
+        html_body = render_to_string('users/emails/otp_verify.html', context)
+    else:
+        subject = "MedSmart — Réinitialisation du mot de passe"
+        text_body = (
+            f"Bonjour {first_name} {last_name},\n\n"
+            f"Votre code de réinitialisation MedSmart est : {otp}\n\n"
+            f"Ce code expire dans 15 minutes.\n"
+            f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail."
+        )
+        html_body = render_to_string('users/emails/otp_reset.html', context)
+
+    msg = EmailMultiAlternatives(
         subject=subject,
-        message=body,
-        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@medsmart.com'),
-        recipient_list=[email],
-        fail_silently=False,
+        body=text_body,
+        from_email=_FROM_EMAIL,
+        to=[email],
     )
+    msg.attach_alternative(html_body, 'text/html')
+    msg.send(fail_silently=False)
+
+
+def send_welcome_email(user):
+    """Sends the welcome HTML email after account activation."""
+    context = {
+        'prenom': user.first_name,
+        'nom': user.last_name,
+        'email': user.email,
+        'patient_id': getattr(user, 'id', ''),
+        'app_url': _APP_URL,
+    }
+    subject = "Bienvenue sur MedSmart ! 🎉"
+    text_body = (
+        f"Bonjour {user.first_name} {user.last_name},\n\n"
+        f"Votre compte MedSmart a été activé avec succès.\n"
+        f"Accédez à votre espace santé sur {_APP_URL}\n\n"
+        f"L'équipe MedSmart"
+    )
+    html_body = render_to_string('users/emails/welcome.html', context)
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=_FROM_EMAIL,
+        to=[user.email],
+    )
+    msg.attach_alternative(html_body, 'text/html')
+    msg.send(fail_silently=True)
 
 
 ROLE_LABELS = {

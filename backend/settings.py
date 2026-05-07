@@ -131,14 +131,13 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/hour',
         'user': '500/hour',
-        'login': '5/minute',  # throttle custom sur la vue token
-        'diagnosis': '10/day', # Limite pour l'IA Diagnostic
+        'login': '5/minute',    # throttle custom sur la vue token
+        'otp_send': '5/minute', # envoi d'OTP (anti-spam)
+        'diagnosis': '10/day',  # Limite pour l'IA Diagnostic
     }
 
 }
@@ -193,6 +192,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@medsmart.dz')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # ── Cache (pour les throttles en test et en dev) ──────────────────────────────
 CACHES = {

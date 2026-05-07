@@ -21,10 +21,10 @@ class Consultation(models.Model):
 
     id     = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # Acteurs — doctor et patient restent directs car
-    # consultation peut exister sans appointment (urgence, téléconsult libre)
-    doctor  = models.ForeignKey(Doctor,on_delete=models.PROTECT,related_name='consultations_as_doctor')
-    patient = models.ForeignKey(Patient,on_delete=models.PROTECT,related_name='consultations_as_patient')
+    # Acteurs — doctor obligatoire ; patient OU external_patient (exactement un des deux)
+    doctor           = models.ForeignKey(Doctor, on_delete=models.PROTECT, related_name='consultations_as_doctor')
+    patient          = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name='consultations_as_patient', null=True, blank=True)
+    external_patient = models.ForeignKey('patients.ExternalPatient', on_delete=models.SET_NULL, null=True, blank=True, related_name='consultations')
 
     # Lien optionnel au rendez-vous d'origine
     appointment = models.OneToOneField(Appointment,on_delete=models.SET_NULL,null=True, blank=True,related_name='consultation')
@@ -53,8 +53,13 @@ class Consultation(models.Model):
     class Meta:
         ordering = ['-consulted_at']
 
+    @property
+    def patient_display(self):
+        if self.patient_id:
+            return self.patient.user.get_full_name()
+        if self.external_patient_id:
+            return f"{self.external_patient.first_name} {self.external_patient.last_name} (externe)"
+        return "—"
+
     def __str__(self):
-        return (
-            f"Consultation {self.doctor.user.get_full_name()} / "
-            f"{self.patient.user.get_full_name()} — {self.consulted_at:%d/%m/%Y}"
-        )
+        return f"Consultation {self.doctor.user.get_full_name()} / {self.patient_display} — {self.consulted_at:%d/%m/%Y}"

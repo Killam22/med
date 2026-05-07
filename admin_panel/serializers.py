@@ -7,13 +7,14 @@ User = get_user_model()
 class AdminUserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     submitted_documents = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
         fields = [
             'id', 'full_name', 'first_name', 'last_name', 'email', 'role',
             'is_active', 'verification_status', 'date_joined',
             'submitted_documents', 'phone', 'wilaya',
+            'address', 'city', 'postal_code', 'sex', 'date_of_birth', 'id_card_number',
         ]
 
     def get_submitted_documents(self, obj):
@@ -28,7 +29,15 @@ class AdminUserSerializer(serializers.ModelSerializer):
             return None
 
         try:
-            if obj.role == 'doctor':
+            if obj.role == 'patient':
+                if getattr(obj, 'id_card_recto', None):
+                    docs.append({"title": "CIN Recto", "url": build_url(obj.id_card_recto)})
+                if getattr(obj, 'id_card_verso', None):
+                    docs.append({"title": "CIN Verso", "url": build_url(obj.id_card_verso)})
+                if getattr(obj, 'photo', None):
+                    docs.append({"title": "Photo de profil", "url": build_url(obj.photo)})
+
+            elif obj.role == 'doctor':
                 # On utilise 'doctor_profile' comme défini dans ton modèle Doctor
                 profile = getattr(obj, 'doctor_profile', None) 
                 if profile:

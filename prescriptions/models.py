@@ -43,7 +43,20 @@ class Prescription(models.Model):
 
     @property
     def patient(self):
-        return self.consultation.patient    
+        return self.consultation.patient
+
+    @property
+    def external_patient(self):
+        return self.consultation.external_patient
+
+    @property
+    def patient_name(self):
+        if self.consultation.patient_id:
+            return self.consultation.patient.user.get_full_name()
+        if self.consultation.external_patient_id:
+            ep = self.consultation.external_patient
+            return f"{ep.first_name} {ep.last_name}"
+        return "—"
 
 
 class PrescriptionItem(models.Model):
