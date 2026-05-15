@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Consultation
-from .serializers import ConsultationSerializer
+from .serializers import ConsultationDoctorSerializer, ConsultationPatientSerializer
 from appointments.models import Appointment
 from appointments.permissions import IsDoctor
 from prescriptions.models import Prescription, PrescriptionItem
@@ -39,7 +39,11 @@ class ConsultationViewSet(viewsets.ModelViewSet):
     Gestion des consultations.
     """
     queryset = Consultation.objects.select_related('doctor__user', 'patient__user', 'appointment').all()
-    serializer_class = ConsultationSerializer
+
+    def get_serializer_class(self):
+        if hasattr(self.request.user, 'doctor_profile'):
+            return ConsultationDoctorSerializer
+        return ConsultationPatientSerializer
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -58,9 +62,16 @@ class ConsultationViewSet(viewsets.ModelViewSet):
         role = getattr(user, 'role', None)
 
         if role == 'patient':
-            return Consultation.objects.filter(patient__user=user)
+            return Consultation.objects.filter(
+                patient__user=user,
+                status=Consultation.Status.COMPLETED,
+            ).order_by('-consulted_at')
         if role == 'doctor':
-            return Consultation.objects.filter(doctor__user=user)
+            qs = Consultation.objects.filter(doctor__user=user).order_by('-consulted_at')
+            patient_id = self.request.query_params.get('patient')
+            if patient_id:
+                qs = qs.filter(patient_id=patient_id)
+            return qs
         if user.is_staff:
             return Consultation.objects.all()
         return Consultation.objects.none()
@@ -129,10 +140,12 @@ class CompleteSessionView(APIView):
         if not diagnosis:
             return Response({'detail': 'diagnosis requis.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        notes     = data.get('notes') or ''
-        symptoms  = data.get('symptoms') or ''
-        vitals    = data.get('vitals') or {}
-        rx_items  = data.get('prescriptions') or []
+        # Accept both naming conventions (frontend sends chief_complaint/doctor_notes)
+        notes          = data.get('doctor_notes') or data.get('notes') or ''
+        symptoms       = data.get('chief_complaint') or data.get('symptoms') or ''
+        treatment_plan = data.get('treatment_plan') or ''
+        vitals         = data.get('vitals') or {}
+        rx_items       = data.get('prescriptions') or []
 
         # 2. Création de la consultation
         consultation = Consultation.objects.create(
@@ -141,6 +154,7 @@ class CompleteSessionView(APIView):
             appointment=appointment,
             chief_complaint=symptoms or appointment.motif or '—',
             diagnosis=diagnosis,
+            treatment_plan=treatment_plan,
             doctor_notes=notes,
             vitals=json.dumps(vitals) if isinstance(vitals, dict) else str(vitals or ''),
             status=Consultation.Status.COMPLETED,

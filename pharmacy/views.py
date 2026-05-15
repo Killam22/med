@@ -74,9 +74,13 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
         role = getattr(user, 'role', None)
 
         if role == 'patient':
-            return PharmacyOrder.objects.filter(patient=user).select_related(
-                'prescription', 'pharmacist'
+            qs = PharmacyOrder.objects.filter(patient=user).select_related(
+                'prescription__consultation__doctor__user', 'pharmacist'
             ).prefetch_related('prescription__items')
+            prescription_id = self.request.query_params.get('prescription')
+            if prescription_id:
+                qs = qs.filter(prescription_id=prescription_id)
+            return qs
 
         if role == 'pharmacist':
             return PharmacyOrder.objects.filter(
@@ -256,6 +260,33 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
                 "price": s.selling_price or s.medication.price_dzd
             })
         
+        return Response(results)
+
+    @action(detail=False, methods=['get'], url_path='public-stock')
+    def public_stock(self, request):
+        """
+        GET /api/pharmacy/stock/public-stock/?pharmacy_id=...
+        Permet aux patients de consulter le catalogue d'une pharmacie spécifique.
+        """
+        pharmacy_id = request.query_params.get('pharmacy_id')
+        if not pharmacy_id:
+            return Response({"error": "pharmacy_id is required"}, status=400)
+            
+        stocks = PharmacyStock.objects.filter(
+            pharmacy_id=pharmacy_id,
+            quantity__gt=0
+        ).select_related('medication')
+
+        results = [
+            {
+                "id": s.id,
+                "name": s.medication.name,
+                "molecule": s.medication.molecule,
+                "price": s.selling_price or s.medication.price_dzd,
+                "stock_qty": s.quantity,
+            }
+            for s in stocks
+        ]
         return Response(results)        
 
 class PharmacistDashboardView(APIView):

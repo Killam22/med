@@ -1,7 +1,7 @@
 import base64
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -11,19 +11,9 @@ from .models import Prescription, QRToken
 from .serializers import (
     PrescriptionSerializer,
     PrescriptionCreateSerializer,
-    QRTokenSerializer,
 )
 from .permissions import IsDoctor, IsPharmacist, IsPrescriptionOwner
 from .services import QRCodeService, CNASService, PDFService
-from django.db.models import Q
-from pharmacy.models import PharmacyOrder
-
-from pharmacy.serializers import (
-    PharmacyOrderSerializer,
-    PharmacyOrderCreateSerializer,
-    PharmacyOrderStatusSerializer,
-)
-from prescriptions.permissions import IsCaregiver, IsCaregiverOfPatient, IsPharmacyOrderOwner
 
 
 class PrescriptionViewSet(viewsets.ModelViewSet):
@@ -62,7 +52,11 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
         role = getattr(user, 'role', None)
 
         if role == 'doctor':
-            return qs.filter(consultation__doctor__user=user)
+            qs = qs.filter(consultation__doctor__user=user)
+            patient_id = self.request.query_params.get('patient')
+            if patient_id:
+                qs = qs.filter(consultation__patient_id=patient_id)
+            return qs
         if role == 'patient':
             return qs.filter(consultation__patient__user=user)
         if role == 'pharmacist':
@@ -136,9 +130,13 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Module caregiver introuvable.'}, status=500)
 
         prescriptions = Prescription.objects.filter(
-            patient_id__in=patient_ids,
+            consultation__patient_id__in=patient_ids,
             status=Prescription.Status.ACTIVE
-        ).select_related('doctor', 'patient').prefetch_related('items')
+        ).select_related(
+            'consultation__doctor__user',
+            'consultation__patient__user',
+            'qr_token',
+        ).prefetch_related('items')
 
         serializer = PrescriptionSerializer(prescriptions, many=True)
         return Response(serializer.data)    

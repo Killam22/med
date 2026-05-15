@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 from medications.models import Medication
 
 class Command(BaseCommand):
-    help = 'Charge la nomenclature depuis le fichier Excel officiel du Ministère'
+    help = 'Charge la nomenclature depuis le fichier Excel officiel du Ministère avec nettoyage des catégories'
 
     def add_arguments(self, parser):
         parser.add_argument('excel_file', type=str, help='Chemin vers le fichier .xlsx')
@@ -11,6 +11,44 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         excel_file = options['excel_file']
         
+        # --- 1. RÈGLES DE CATÉGORISATION (Data Cleaning) ---
+        # Valeurs correspondant exactement aux choices du modèle Medication.Category
+        categories_rules = {
+            'PARACETAMOL': 'analgesic',
+            'AMOXICILLINE': 'antibiotic',
+            'CEF': 'antibiotic',       # Cefotaxime, Ceftriaxone, Cefixime...
+            'PENICILLINE': 'antibiotic',
+            'IBUPROFENE': 'anti_inflam',
+            'DICLOFENAC': 'anti_inflam',
+            'KETOPROFENE': 'anti_inflam',
+            'CORTISONE': 'anti_inflam',
+            'PREDNISOLONE': 'anti_inflam',
+            'METFORMINE': 'diabetes',
+            'INSULINE': 'diabetes',
+            'GLIMEPIRIDE': 'diabetes',
+            'OMEPRAZOLE': 'gastro',
+            'PANTOPRAZOLE': 'gastro',
+            'AMLODIPINE': 'cardio',
+            'VALSARTAN': 'cardio',
+            'LOSARTAN': 'cardio',
+            'LORATADINE': 'other',
+            'CETIRIZINE': 'other',
+            'VITAMINE': 'other',
+            'CALCIUM': 'other',
+            'FER': 'other',
+        }
+
+        # Fonction qui trouve la catégorie en lisant la molécule
+        def trouver_categorie(dci):
+            if not dci or str(dci).lower() == 'nan':
+                return 'other'
+            dci_upper = str(dci).upper()
+            for mot_cle, cat in categories_rules.items():
+                if mot_cle in dci_upper:
+                    return cat
+            return 'other'
+        # ----------------------------------------------------
+
         try:
             self.stdout.write("Ouverture du fichier Excel en cours (cela peut prendre 1 à 2 minutes)...")
             xls = pd.ExcelFile(excel_file, engine='openpyxl')
@@ -49,7 +87,10 @@ class Command(BaseCommand):
                     if existing_med and existing_med.barcode != num_enreg:
                         full_name = f"{full_name} [{num_enreg}]"
 
+                    # 2. APPLICATION DU NETTOYAGE
                     requires_presc = 'liste' in liste.lower() or 'stup' in liste.lower()
+                    categorie_calculee = trouver_categorie(molecule) # Calcul dynamique de la catégorie
+                    
                     dosage_json = [dosage] if dosage else []
 
                     # Insertion ou mise à jour
@@ -59,17 +100,18 @@ class Command(BaseCommand):
                             'name': full_name[:240], # Sécurité finale à 240
                             'molecule': molecule,
                             'form': forme,
+                            'category': categorie_calculee, # <--- Ajout de la catégorie ici
                             'dosage_forms': dosage_json,
                             'manufacturer': labo,
                             'requires_prescription': requires_presc,
                             'is_active': is_active,
                         }
                     )
+                    count += 1
                     if created:
-                        count += 1
                         total_added += 1
-                        
-                self.stdout.write(self.style.SUCCESS(f' -> {count} médicaments ajoutés depuis cet onglet.'))
+
+                self.stdout.write(self.style.SUCCESS(f' -> {count} médicaments traités depuis cet onglet ({total_added} créés au total).'))
                 
             self.stdout.write(self.style.SUCCESS(f'\nTerminé avec succès ! {total_added} médicaments importés au total.'))
             

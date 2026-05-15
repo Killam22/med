@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask
-from consultations.serializers import ConsultationSerializer 
+from consultations.serializers import ConsultationPatientSerializer as ConsultationSerializer
 from prescriptions.serializers import PrescriptionSerializer 
 
 class CaretakerServiceSerializer(serializers.ModelSerializer):
@@ -35,11 +35,15 @@ class CareRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = CareRequest
         fields = [
-            'id', 'patient', 'patient_name', 'caretaker', 'caretaker_name', 
-            'status', 'start_date', 'end_date', 'patient_message', 
+            'id', 'patient', 'patient_name', 'caretaker', 'caretaker_name',
+            'status', 'start_date', 'end_date', 'patient_message',
             'created_at', 'messages', 'patient_medical_dossier'
         ]
         read_only_fields = ['status', 'patient']
+        extra_kwargs = {
+            'start_date': {'required': False, 'allow_null': True},
+            'patient_message': {'required': False, 'allow_blank': True},
+        }
 
     def validate_caretaker(self, value):
         """Empêcher l'envoi de requêtes à des gardes-malades inactifs ou non vérifiés."""

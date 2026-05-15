@@ -6,17 +6,21 @@ class PatientSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     age = serializers.IntegerField(read_only=True)
-    
+    photo = serializers.ImageField(source='user.photo', read_only=True)
+
     date_of_birth = serializers.DateField(source='user.date_of_birth', required=False, allow_null=True)
     phone = serializers.CharField(source='user.phone', required=False, allow_blank=True)
     address = serializers.CharField(source='user.address', required=False, allow_blank=True)
+    postal_code = serializers.CharField(source='user.postal_code', required=False, allow_blank=True)
     city = serializers.CharField(source='user.city', required=False, allow_blank=True)
+    wilaya = serializers.CharField(source='user.wilaya', required=False, allow_blank=True)
+    sex = serializers.CharField(source='user.sex', required=False, allow_blank=True)
 
     class Meta:
         model = Patient
         fields = [
             'id', 'email', 'first_name', 'last_name', 'date_of_birth', 'age',
-            'phone', 'address', 'city'
+            'phone', 'address', 'postal_code', 'city', 'wilaya', 'sex', 'photo'
         ]
 
     def update(self, instance, validated_data):
@@ -85,6 +89,10 @@ class SymptomAnalysisSerializer(serializers.ModelSerializer):
 
 class MedicalProfileSerializer(serializers.ModelSerializer):
     allergies = AllergySerializer(many=True, read_only=True)
+    allergies_input = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        write_only=True, required=False, allow_empty=True
+    )
     bmi = serializers.ReadOnlyField()
     antecedents = serializers.SerializerMethodField()
     treatments = serializers.SerializerMethodField()
@@ -93,12 +101,22 @@ class MedicalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicalProfile
         fields = [
-            'id', 'patient', 'weight', 'height', 'blood_group', 
+            'id', 'patient', 'weight', 'height', 'blood_group',
             'emergency_contact_name', 'emergency_contact_phone', 'bmi',
-            'allergies', 'treatments', 'antecedents', 'medical_documents'
+            'allergies', 'allergies_input', 'treatments', 'antecedents', 'medical_documents'
         ]
         read_only_fields = ['patient']
 
+    def update(self, instance, validated_data):
+        allergies_input = validated_data.pop('allergies_input', None)
+        instance = super().update(instance, validated_data)
+        if allergies_input is not None:
+            instance.allergies.all().delete()
+            for substance in allergies_input:
+                substance = substance.strip()
+                if substance:
+                    Allergy.objects.create(profile=instance, substance=substance)
+        return instance
 
     def get_antecedents(self, obj):
         return AntecedentSerializer(obj.patient.antecedents.all(), many=True).data

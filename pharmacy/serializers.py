@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Pharmacist, Pharmacy, PharmacyOrder, PharmacyStock, PharmacistQualification
 from medications.serializers import MedicationSerializer
-from prescriptions.serializers import PrescriptionSerializer, PrescriptionItemSerializer
+from prescriptions.serializers import PrescriptionItemSerializer
 from prescriptions.models import Prescription
 
 class PharmacistSerializer(serializers.ModelSerializer):
@@ -13,7 +13,8 @@ class PharmacistSerializer(serializers.ModelSerializer):
 
 class PharmacySerializer(serializers.ModelSerializer):
     pharmacist_user_id = serializers.IntegerField(source='pharmacist.user.id', read_only=True)
-    pharmacist_name = serializers.CharField(source='pharmacist.user.get_full_name', read_only=True)
+    pharmacist_name    = serializers.CharField(source='pharmacist.user.get_full_name', read_only=True)
+    cnas_coverage      = serializers.BooleanField(source='pharmacist.cnas_coverage', read_only=True)
 
     class Meta:
         model = Pharmacy
@@ -21,6 +22,7 @@ class PharmacySerializer(serializers.ModelSerializer):
             'id', 'pharmacist', 'pharmacist_user_id', 'pharmacist_name',
             'name', 'pharm_address', 'pharm_city', 'pharm_phone',
             'latitude', 'longitude', 'is_open_24h', 'agreement_number',
+            'cnas_coverage',
         ]
 
 class PharmacyOrderSerializer(serializers.ModelSerializer):
@@ -29,6 +31,8 @@ class PharmacyOrderSerializer(serializers.ModelSerializer):
     pharmacist_name  = serializers.CharField(source='pharmacist.get_full_name', read_only=True)
     status_display   = serializers.CharField(source='get_status_display', read_only=True)
     items            = serializers.SerializerMethodField()
+    doctor_name      = serializers.SerializerMethodField()
+    total            = serializers.DecimalField(source='total_price', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model  = PharmacyOrder
@@ -39,9 +43,19 @@ class PharmacyOrderSerializer(serializers.ModelSerializer):
             'status', 'status_display',
             'patient_message', 'pharmacist_note',
             'estimated_ready', 'items',
+            'doctor_name', 'total',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'patient', 'created_at', 'updated_at']
+
+    def get_doctor_name(self, obj):
+        try:
+            if obj.prescription and obj.prescription.consultation:
+                doc = obj.prescription.consultation.doctor
+                return doc.user.get_full_name()
+        except Exception:
+            pass
+        return "—"
 
     def get_prescription_ref(self, obj):
         if not obj.prescription:
@@ -59,12 +73,12 @@ class PharmacyOrderCreateSerializer(serializers.ModelSerializer):
     prescription = serializers.PrimaryKeyRelatedField(
         queryset=Prescription.objects.all(), required=False, allow_null=True
     )
-    
+
     class Meta:
         model  = PharmacyOrder
         fields = [
-            'prescription', 'patient_message', 'order_type', 
-            'withdrawal_method', 'caretaker'
+            'prescription', 'pharmacist', 'patient_message', 'order_type',
+            'withdrawal_method', 'caretaker',
         ]
 
     def validate(self, data):
@@ -91,11 +105,7 @@ class PharmacyOrderCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
-        return PharmacyOrder.objects.create(
-            patient=self.context['request'].user,
-            **validated_data
-        )
+
 
 class PharmacyOrderStatusSerializer(serializers.ModelSerializer):
     """Pour que le pharmacien mette à jour le statut."""

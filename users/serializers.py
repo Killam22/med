@@ -330,7 +330,7 @@ class BaseUserUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'role', 'full_name', 'first_name', 'last_name', 'phone', 'sex',
             'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
-            'verification_status', 'is_active'
+            'verification_status', 'is_active', 'photo'
         ]
         read_only_fields = ['id', 'role', 'full_name', 'verification_status', 'is_active']
 

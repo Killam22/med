@@ -449,7 +449,7 @@ class PatientRecordView(APIView):
 
         # Profil de base
         from patients.serializers import PatientSerializer
-        profile = PatientSerializer(patient).data
+        profile = PatientSerializer(patient, context={'request': request}).data
 
         # Profil médical
         medical_profile_obj, _ = MedicalProfile.objects.get_or_create(patient=patient)
