@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask
-from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer, CaretakerTaskSerializer
+from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
+from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer, CaretakerTaskSerializer, MedicationScheduleSerializer
 
 class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
     """API pour les patients : Rechercher et filtrer les gardes-malades"""
@@ -156,6 +156,40 @@ class CaretakerTaskViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+class MedicationScheduleViewSet(viewsets.ModelViewSet):
+    """
+    Garde-malade : plan médicamenteux (matin/après-midi/soir) pour ses patients.
+    GET    /api/caretaker/medication-schedules/       → liste
+    POST   /api/caretaker/medication-schedules/       → créer
+    PATCH  /api/caretaker/medication-schedules/{id}/  → modifier les médicaments
+    DELETE /api/caretaker/medication-schedules/{id}/  → supprimer
+    """
+    serializer_class   = MedicationScheduleSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names  = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        if self.request.user.role != 'caretaker':
+            return MedicationSchedule.objects.none()
+        return MedicationSchedule.objects.filter(
+            care_request__caretaker__user=self.request.user
+        ).select_related('care_request__patient')
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'caretaker':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Réservé aux gardes-malades.")
+        care_request = serializer.validated_data['care_request']
+        if care_request.caretaker.user != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Cette demande ne vous appartient pas.")
+        if care_request.status != CareRequest.Status.ACCEPTED:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("La demande doit être acceptée avant de créer un plan.")
+        medications = self.request.data.get('medications', {'morning': [], 'afternoon': [], 'evening': []})
+        serializer.save(medications=medications)
+
+
 class CaretakerDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     renderer_classes = [JSONRenderer]
@@ -165,11 +199,15 @@ class CaretakerDashboardView(APIView):
             return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
 
         user = request.user
-        my_requests = CareRequest.objects.filter(caretaker__user=user, status='accepted')
+        my_requests = CareRequest.objects.filter(
+            caretaker__user=user, status='accepted'
+        ).select_related('patient')
 
         data = {
             "my_patients": [
                 {
+                    "id": r.patient.id,
+                    "care_request_id": str(r.id),
                     "name": r.patient.get_full_name(),
                     "start_date": r.start_date,
                     "end_date": r.end_date,

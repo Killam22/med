@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Comptes de démonstration avec données réalistes pour captures d'écran académiques.
-Lancer : cd back && python manage.py shell < scripts/create_demo_accounts.py
+Comptes de demonstration avec donnees realistes pour captures d'ecran academiques.
+Lancer : cd back && python scripts/create_demo_accounts.py
 """
+import os
+import sys
+import django
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+django.setup()
+
 import json
 from datetime import date, time, datetime, timedelta
 
@@ -142,7 +151,7 @@ try:
         'Yacine', 'Bensaid', 'male',
         date(1980, 6, 15), '0555234567',
         'DEMO-D1-2025-003',
-        'Clinique El Rahma, Alger', '16000', 'Alger', 'Alger',
+        'Clinique El Rahma, Hydra, Alger', '16035', 'Alger', 'Alger',
     )
     if user_bensaid:
         try:
@@ -166,7 +175,7 @@ try:
                 doctor=doctor_bensaid,
                 establishment_name='Clinique El Rahma',
                 defaults={
-                    'est_address': '12 Rue des Martyrs, Alger',
+                    'est_address': 'CHU Mustapha Pacha, Place du 1er Mai, Alger',
                     'est_city': 'Alger',
                     'pro_phone': '0555234567',
                     'is_main_location': True,
@@ -183,7 +192,7 @@ try:
         'Amina', 'Khelifi', 'female',
         date(1975, 3, 20), '0661345678',
         'DEMO-D2-2025-004',
-        'Cabinet Médical Khelifi, Alger', '16000', 'Alger', 'Alger',
+        'Cabinet Medical Khelifi, Alger Centre', '16000', 'Alger', 'Alger',
     )
     if user_khelifi:
         try:
@@ -206,7 +215,7 @@ try:
                 doctor=doctor_khelifi,
                 establishment_name='Cabinet Médical Khelifi',
                 defaults={
-                    "est_address": "25 Rue Larbi Ben M'Hidi, Alger",
+                    "est_address": "Hopital de Bab El Oued, Alger",
                     'est_city': 'Alger',
                     'pro_phone': '0661345678',
                     'is_main_location': True,

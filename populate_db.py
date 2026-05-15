@@ -28,8 +28,10 @@ def populate():
     from patients.models import MedicalDocument, Treatment
     
     print("🗑️ Nettoyage des données médicales...")
-    Consultation.objects.all().delete()
+    from pharmacy.models import PharmacyOrder
+    PharmacyOrder.objects.all().delete()
     Prescription.objects.all().delete()
+    Consultation.objects.all().delete()
     MedicalDocument.objects.all().delete()
     Treatment.objects.all().delete()
     
@@ -49,8 +51,81 @@ def populate():
         ('dentistry', 'Dentisterie'),
     ]
 
-    CITIES = ['Alger', 'Oran', 'Constantine', 'Annaba', 'Sétif', 'Batna', 'Béjaïa']
-    
+    CITIES = ['Alger', 'Oran', 'Constantine', 'Annaba', 'Setif', 'Batna', 'Bejaia']
+
+    MEDICAL_ESTABLISHMENTS = {
+        'Alger': [
+            ('CHU Mustapha Pacha', 'CHU Mustapha Pacha, Alger'),
+            ('Hopital Bab El Oued', 'Hopital de Bab El Oued, Alger'),
+            ('Hopital Parnet Hussein Dey', 'Hopital Parnet, Hussein Dey, Alger'),
+            ('Hopital Birtraria', 'Hopital Birtraria, Alger'),
+            ('Clinique El Azhar Kouba', 'Clinique El Azhar, Kouba, Alger'),
+            ('EHS El Kettar', 'EHS El Kettar, Alger'),
+            ('Hopital Lamine Debaghine', 'Hopital Lamine Debaghine, Alger'),
+        ],
+        'Oran': [
+            ('CHU Oran 1er Novembre', 'CHU 1er Novembre 1954, Oran'),
+            ('EHU Oran', 'EHU Oran, Oran'),
+            ('Hopital Ain El Turck', 'Hopital Ain El Turck, Oran'),
+            ('Hopital Benzerdjeb Oran', 'Hopital Benzerdjeb, Oran'),
+            ('Polyclinique Es Senia', 'Polyclinique Es Senia, Oran'),
+        ],
+        'Constantine': [
+            ('CHU Ibn Badis Constantine', 'CHU Ibn Badis, Constantine'),
+            ('Hopital Daksi Constantine', 'Hopital Daksi, Constantine'),
+            ('Hopital Benbadis Constantine', 'Hopital Benbadis, Constantine'),
+            ('Clinique Sidi Mabrouk', 'Clinique Sidi Mabrouk, Constantine'),
+        ],
+        'Annaba': [
+            ('CHU Ibn Rochd Annaba', 'CHU Ibn Rochd, Annaba'),
+            ('Hopital Dorban Annaba', 'Hopital Dorban, Annaba'),
+            ('Hopital Boukhadra Annaba', 'Hopital Boukhadra, Annaba'),
+        ],
+        'Setif': [
+            ('CHU Saadna Setif', 'CHU Saadna Abderrahmane, Setif'),
+            ('Hopital Setif', 'Hopital de Setif, Setif'),
+            ('Clinique Setif', 'Clinique Medicale, Setif'),
+        ],
+        'Batna': [
+            ('CHU Batna', 'CHU Batna, Batna'),
+            ('Hopital Batna', 'Hopital de Batna, Batna'),
+            ('Clinique Batna', 'Clinique Medicale, Batna'),
+        ],
+        'Bejaia': [
+            ('CHU Khelil Amrane Bejaia', 'CHU Khelil Amrane, Bejaia'),
+            ('Hopital Bejaia', 'Hopital de Bejaia, Bejaia'),
+            ('Clinique Bejaia', 'Clinique Medicale, Bejaia'),
+        ],
+    }
+
+    PHARMACY_ESTABLISHMENTS = {
+        'Alger': [
+            ('Pharmacie Centrale Alger', '1 Place du 1er Mai, Alger'),
+            ('Pharmacie El Shifa', '14 Rue Didouche Mourad, Alger'),
+            ('Pharmacie Bab El Oued', '32 Boulevard Salah Bouakouir, Bab El Oued, Alger'),
+        ],
+        'Oran': [
+            ('Pharmacie Ibn Sina', '8 Rue de la Bastille, Oran'),
+            ('Pharmacie El Hayat', 'Boulevard Maata, Oran'),
+        ],
+        'Constantine': [
+            ('Pharmacie El Amel', '5 Rue Larbi Ben Mhidi, Constantine'),
+            ('Pharmacie Sidi Mabrouk', 'Sidi Mabrouk, Constantine'),
+        ],
+        'Annaba': [
+            ('Pharmacie El Nour', '10 Cours de la Revolution, Annaba'),
+        ],
+        'Setif': [
+            ('Pharmacie El Ferdous', '3 Place de la Liberte, Setif'),
+        ],
+        'Batna': [
+            ('Pharmacie El Wahda', '17 Avenue du 1er Novembre, Batna'),
+        ],
+        'Bejaia': [
+            ('Pharmacie El Baraka', '2 Rue de la Paix, Bejaia'),
+        ],
+    }
+
     first_names_m = ['Amine', 'Mohamed', 'Yacine', 'Karim', 'Omar', 'Sofiane', 'Abdel']
     first_names_f = ['Lydia', 'Ines', 'Sonia', 'Amel', 'Meriem', 'Nadia', 'Sarah']
     last_names = ['Bensaid', 'Mansouri', 'Khelifi', 'Ziane', 'Hamidi', 'Belkacem', 'Ouali']
@@ -99,10 +174,11 @@ def populate():
         doctors_list.append(doctor)
         
         # Ajouter un lieu d'exercice
+        med_place = random.choice(MEDICAL_ESTABLISHMENTS[city])
         Exercice.objects.create(
             doctor=doctor,
-            establishment_name=f"Clinique {city} Santé",
-            est_address=f"Rue {random.randint(1, 100)} de la Liberté",
+            establishment_name=med_place[0],
+            est_address=med_place[1],
             est_city=city,
             pro_phone=user.phone,
             is_main_location=True
@@ -123,7 +199,12 @@ def populate():
             role='patient',
             sex=sex,
             is_active=True,
+            verification_status='verified',
             city=random.choice(CITIES),
+            wilaya=random.choice(CITIES),
+            phone=f"0550{random.randint(100000, 999999)}",
+            address=f"Résidence {lname}",
+            postal_code='16000',
             id_card_number=f"PAT{i}{random.randint(100000, 999999)}"
         )
         
@@ -190,10 +271,11 @@ def populate():
             cnas_coverage=True
         )
         
+        pharm_place = random.choice(PHARMACY_ESTABLISHMENTS[city])
         Pharmacy.objects.create(
             pharmacist=pharmacist,
-            name=f"Pharmacie {lname}",
-            pharm_address=f"Boulevard {random.randint(1, 50)} de la Santé",
+            name=pharm_place[0],
+            pharm_address=pharm_place[1],
             pharm_city=city,
             pharm_phone=f"021{random.randint(100000, 999999)}",
             is_open_24h=random.choice([True, False]),
@@ -257,7 +339,7 @@ def populate():
                 medication=med,
                 defaults={
                     'quantity': random.randint(15, 200),
-                    'selling_price': med.price_dzd,
+                    'selling_price': med.price_dzd or random.randint(100, 1000),
                     'expiry_date': today + timedelta(days=random.randint(60, 600)),
                 },
             )

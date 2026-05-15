@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask
+from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
 from consultations.serializers import ConsultationPatientSerializer as ConsultationSerializer
-from prescriptions.serializers import PrescriptionSerializer 
+from prescriptions.serializers import PrescriptionSerializer
 
 class CaretakerServiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -84,3 +84,13 @@ class CaretakerTaskSerializer(serializers.ModelSerializer):
         model = CaretakerTask
         fields = ['id', 'care_request', 'title', 'description', 'status', 'due_date', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class MedicationScheduleSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='care_request.patient.get_full_name', read_only=True)
+    patient_id   = serializers.IntegerField(source='care_request.patient.id', read_only=True)
+
+    class Meta:
+        model  = MedicationSchedule
+        fields = ['id', 'care_request', 'patient_id', 'patient_name', 'condition', 'medications', 'updated_at']
+        read_only_fields = ['id', 'patient_id', 'patient_name', 'updated_at']

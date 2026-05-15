@@ -64,6 +64,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
     gender_display = serializers.CharField(source='user.get_sex_display', read_only=True)
     gender = serializers.CharField(source='user.sex', read_only=True)
     est_city = serializers.SerializerMethodField()
+    est_address = serializers.SerializerMethodField()
     pro_phone = serializers.SerializerMethodField()
     available_slots_for_date = serializers.SerializerMethodField()
 
@@ -72,15 +73,18 @@ class DoctorListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'full_name', 'specialty', 'specialty_display',
             'gender', 'gender_display',
-            'clinic_name', 'est_city', 'pro_phone', 'rating', 'total_reviews',
+            'clinic_name', 'est_address', 'est_city', 'pro_phone', 'rating', 'total_reviews',
             'experience_years', 'consultation_fee', 'bio', 'languages',
             'available_slots_for_date',
         ]
 
     def get_est_city(self, obj):
-        # We try to get the main exercise location
         exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()
         return exercise.est_city if exercise else ""
+
+    def get_est_address(self, obj):
+        exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()
+        return exercise.est_address if exercise else ""
 
     def get_pro_phone(self, obj):
         exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()

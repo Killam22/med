@@ -120,8 +120,8 @@ class PharmacyStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = PharmacyStock
         fields = [
-            'id', 'pharmacy', 'medication', 'medication_details', 
-            'quantity', 'selling_price', 'expiry_date', 
+            'id', 'pharmacy', 'medication', 'medication_details',
+            'quantity', 'min_threshold', 'selling_price', 'expiry_date',
             'last_updated'
         ]
         read_only_fields = ['pharmacy']

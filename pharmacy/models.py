@@ -48,6 +48,7 @@ class PharmacyStock(models.Model):
     pharmacy = models.ForeignKey(Pharmacy, on_delete=models.CASCADE, related_name='stocks', default = 0)
     medication = models.ForeignKey(Medication, on_delete=models.CASCADE, related_name='pharmacy_stocks')
     quantity = models.PositiveIntegerField(default=0)
+    min_threshold = models.PositiveIntegerField(default=10, help_text="Seuil d'alerte stock bas")
     selling_price = models.DecimalField(max_digits=8, decimal_places=2, help_text="Prix de vente DZD en pharmacie")
     expiry_date = models.DateField(null=True, blank=True)
     last_updated = models.DateTimeField(auto_now=True)

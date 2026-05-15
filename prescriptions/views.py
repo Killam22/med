@@ -118,7 +118,7 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
         GET /api/prescriptions/caregiver-patients/
         Garde-malade : liste des ordonnances de ses patients assignés.
         """
-        if getattr(request.user, 'role', None) != 'caregiver':
+        if getattr(request.user, 'role', None) != 'caretaker':
             return Response({'error': 'Accès réservé aux gardes-malades.'}, status=403)
 
         try:

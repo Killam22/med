@@ -110,3 +110,17 @@ class CaretakerDiploma(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.caretaker.user.last_name}"
+
+
+class MedicationSchedule(models.Model):
+    """Plan médicamenteux (matin/après-midi/soir) créé par le garde-malade pour un patient."""
+    care_request = models.OneToOneField(
+        CareRequest, on_delete=models.CASCADE, related_name='medication_schedule'
+    )
+    condition = models.CharField(max_length=300, blank=True)
+    medications = models.JSONField(default=dict)  # {morning: [], afternoon: [], evening: []}
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Plan médicaments — {self.care_request.patient.get_full_name()}"

@@ -1,4 +1,6 @@
-from django.db.models import Q, Sum
+from datetime import timedelta
+from django.db.models import F, Q, Sum, Count
+from django.db.models.functions import TruncMonth
 from rest_framework import generics, permissions, viewsets, status, filters
 from rest_framework.views import APIView
 from rest_framework.renderers import JSONRenderer
@@ -224,14 +226,13 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
         self._check_low_stock(stock)
 
     def _check_low_stock(self, stock):
-        if stock.quantity < 10:
+        if stock.quantity < stock.min_threshold:
             from notifications.models import Notification
-            # Nom du médicament (en supposant que stock.medication.name existe)
             med_name = getattr(stock.medication, 'name', 'ce médicament')
             Notification.objects.create(
                 user=stock.pharmacy.pharmacist.user,
                 title="Alerte Stock critique",
-                message=f"Alerte : Le stock de {med_name} est critique.",
+                message=f"Alerte : Le stock de {med_name} est critique ({stock.quantity} unités).",
                 notification_type=Notification.NotificationType.PHARMACY
             )
 
@@ -289,6 +290,9 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
         ]
         return Response(results)        
 
+MONTH_NAMES_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+CHART_COLORS   = ['#4A6FA5', '#2D8C6F', '#7B5EA7', '#E8A838', '#E05555']
+
 class PharmacistDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     renderer_classes = [JSONRenderer]
@@ -299,25 +303,121 @@ class PharmacistDashboardView(APIView):
 
         user = request.user
         today = timezone.now().date()
-        today_orders = PharmacyOrder.objects.filter(pharmacist=user, created_at__date=today)
-        stock_alerts = PharmacyStock.objects.filter(pharmacy__pharmacist__user=user, quantity__lt=10)
 
+        all_stock = PharmacyStock.objects.filter(pharmacy__pharmacist__user=user)
+        stock_alerts = all_stock.filter(quantity__lt=F('min_threshold'))
+
+        today_orders = PharmacyOrder.objects.filter(pharmacist=user, created_at__date=today)
         revenue_dict = today_orders.filter(status='delivered').aggregate(total=Sum('total_price'))
-        today_revenue = revenue_dict['total'] or 0
+        today_revenue = float(revenue_dict['total'] or 0)
+
+        # --- Monthly stats (last 6 months) ---
+        start_date = today - timedelta(days=182)
+
+        monthly_qs = (
+            PharmacyOrder.objects
+            .filter(pharmacist=user, status='delivered', created_at__date__gte=start_date)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(revenue=Sum('total_price'), orders=Count('id'))
+            .order_by('month')
+        )
+
+        # CNAS covered amounts from linked prescriptions
+        cnas_by_month = {}
+        try:
+            from prescriptions.models import CNASCoverage
+            cnas_qs = (
+                CNASCoverage.objects
+                .filter(
+                    prescription__pharmacy_orders__pharmacist=user,
+                    prescription__pharmacy_orders__status='delivered',
+                    prescription__pharmacy_orders__created_at__date__gte=start_date,
+                )
+                .annotate(month=TruncMonth('prescription__pharmacy_orders__created_at'))
+                .values('month')
+                .annotate(total=Sum('covered_amount'))
+            )
+            for item in cnas_qs:
+                if item['month']:
+                    key = item['month'].date().replace(day=1)
+                    cnas_by_month[key] = float(item['total'] or 0)
+        except Exception:
+            pass
+
+        monthly_data = []
+        for item in monthly_qs:
+            m = item['month'].date()
+            key = m.replace(day=1)
+            monthly_data.append({
+                'month': MONTH_NAMES_FR[m.month - 1],
+                'ventes': float(item['revenue'] or 0),
+                'cnas': cnas_by_month.get(key, 0),
+            })
+
+        # --- Top 5 medications sold ---
+        top_meds = []
+        try:
+            from prescriptions.models import PrescriptionItem
+            top_qs = (
+                PrescriptionItem.objects
+                .filter(
+                    prescription__pharmacy_orders__pharmacist=user,
+                    prescription__pharmacy_orders__status='delivered',
+                )
+                .values('medication__name')
+                .annotate(total_qty=Sum('quantity'))
+                .order_by('-total_qty')[:5]
+            )
+            top_list = list(top_qs)
+            max_qty = max((t['total_qty'] for t in top_list), default=1) or 1
+            top_meds = [
+                {
+                    'name': t['medication__name'],
+                    'qty': t['total_qty'],
+                    'pct': round(t['total_qty'] / max_qty * 100),
+                    'color': CHART_COLORS[i % len(CHART_COLORS)],
+                }
+                for i, t in enumerate(top_list)
+            ]
+        except Exception:
+            pass
+
+        # --- Category distribution (from stock) ---
+        categories = list(
+            all_stock
+            .values('medication__category')
+            .annotate(count=Count('id'), total_qty=Sum('quantity'))
+            .order_by('-count')
+        )
+
+        # --- Total CNAS amount today ---
+        cnas_today = 0.0
+        try:
+            from prescriptions.models import CNASCoverage
+            cnas_res = CNASCoverage.objects.filter(
+                prescription__pharmacy_orders__pharmacist=user,
+                prescription__pharmacy_orders__status='delivered',
+                prescription__pharmacy_orders__created_at__date=today,
+            ).aggregate(total=Sum('covered_amount'))
+            cnas_today = float(cnas_res['total'] or 0)
+        except Exception:
+            pass
 
         data = {
             "kpis": {
                 "today_orders": today_orders.count(),
-                "today_revenue": float(today_revenue),
-                "stock_items": PharmacyStock.objects.filter(pharmacy__pharmacist__user=user).count(),
+                "today_revenue": today_revenue,
+                "stock_items": all_stock.count(),
                 "stock_alerts_count": stock_alerts.count(),
+                "cnas_amount": cnas_today,
             },
             "priority_alerts": [
                 {
                     "type": "stock",
                     "message": f"{s.medication.name} - Stock critique ({s.quantity} unités)",
                 }
-                for s in stock_alerts
+                for s in stock_alerts.select_related('medication')
             ],
             "recent_orders": [
                 {
@@ -328,5 +428,8 @@ class PharmacistDashboardView(APIView):
                 }
                 for o in PharmacyOrder.objects.filter(pharmacist=user).order_by('-created_at')[:5]
             ],
+            "monthly_data": monthly_data,
+            "top_meds": top_meds,
+            "categories": categories,
         }
         return Response(data)

@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CaretakerViewSet, CareRequestViewSet, AddCertificateView, CaretakerDashboardView, CaretakerTaskViewSet
+from .views import CaretakerViewSet, CareRequestViewSet, AddCertificateView, CaretakerDashboardView, CaretakerTaskViewSet, MedicationScheduleViewSet
 
 router = DefaultRouter()
-router.register(r'search',   CaretakerViewSet,     basename='caretaker-search')
-router.register(r'requests', CareRequestViewSet,   basename='care-request')
-router.register(r'tasks',    CaretakerTaskViewSet, basename='caretaker-task')
+router.register(r'search',               CaretakerViewSet,          basename='caretaker-search')
+router.register(r'requests',             CareRequestViewSet,        basename='care-request')
+router.register(r'tasks',               CaretakerTaskViewSet,      basename='caretaker-task')
+router.register(r'medication-schedules', MedicationScheduleViewSet, basename='medication-schedule')
 
 urlpatterns = [
     path('', include(router.urls)),
