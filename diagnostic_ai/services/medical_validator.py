@@ -57,6 +57,31 @@ NIH_ALIASES = {
     "hypertension":               "essential hypertension",
     "heart block":                "atrioventricular block",
     "anemia":                     "iron deficiency anemia",
+    # Dentaire
+    "dental abscess":             "abscess of tooth",
+    "tooth abscess":              "abscess of tooth",
+    "toothache":                  "dental pain",
+    "dental caries":              "dental caries",
+    "caries":                     "dental caries",
+    "tooth decay":                "dental caries",
+    "gum disease":                "gingivitis",
+    "gingivitis":                 "gingivitis",
+    "periodontitis":              "periodontitis",
+    "pulpitis":                   "pulpitis",
+    # ORL
+    "otitis":                     "otitis media",
+    "ear infection":              "otitis media",
+    "rhinitis":                   "allergic rhinitis",
+    "pharyngitis":                "pharyngitis",
+    "tonsillitis":                "tonsillitis",
+    "sinusitis":                  "sinusitis",
+    "laryngitis":                 "laryngitis",
+    # Divers
+    "irritable bowel":            "irritable bowel syndrome",
+    "ibs":                        "irritable bowel syndrome",
+    "cystitis":                   "cystitis",
+    "urinary tract infection":    "urinary tract infection",
+    "conjunctivitis":             "conjunctivitis",
 }
 
 
@@ -67,9 +92,12 @@ def validate_disease_nih(disease_name: str) -> dict:
     TTL : 24h (les codes ICD-10 sont stables).
     """
     cache_key = f"nih_validation_{disease_name.lower().replace(' ', '_')}"
-    cached = django_cache.get(cache_key)
-    if cached is not None:
-        return cached
+    try:
+        cached = django_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        pass
 
     # Chercher d'abord avec le nom original, puis avec l'alias si pas trouvé
     search_names = [disease_name]
@@ -80,11 +108,17 @@ def validate_disease_nih(disease_name: str) -> dict:
     for name in search_names:
         result = _query_nih(disease_name, name)
         if result["valid"]:
-            django_cache.set(cache_key, result, NIH_CACHE_TTL)
+            try:
+                django_cache.set(cache_key, result, NIH_CACHE_TTL)
+            except Exception:
+                pass
             return result
 
     result = _not_found(disease_name)
-    django_cache.set(cache_key, result, NIH_CACHE_TTL)
+    try:
+        django_cache.set(cache_key, result, NIH_CACHE_TTL)
+    except Exception:
+        pass
     return result
 
 
@@ -105,7 +139,13 @@ def _query_nih(original_name: str, search_name: str) -> dict:
         if response.status_code != 200:
             return _not_found(original_name)
 
-        data = response.json()
+        # Force UTF-8 — l'API NIH retourne parfois des en-têtes avec charset incorrect
+        response.encoding = "utf-8"
+        import json as _json
+        try:
+            data = response.json()
+        except Exception:
+            data = _json.loads(response.content.decode("utf-8", errors="replace"))
 
         if not data or len(data) < 4 or data[0] == 0:
             logger.debug("NIH: '%s' non trouvée", search_name)

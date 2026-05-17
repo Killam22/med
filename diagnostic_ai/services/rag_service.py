@@ -204,10 +204,11 @@ def get_specialists() -> list:
 
 
 def find_specialist(key: str) -> dict:
+    normalized = key.lower().replace("_", " ")
     for s in get_specialists():
-        if key.lower() in s.get("specialty_en", "").lower():
+        if normalized in s.get("specialty_en", "").lower():
             return s
-        if key.lower() in s.get("specialty_fr", "").lower():
+        if normalized in s.get("specialty_fr", "").lower():
             return s
     return {"specialty_fr": key, "specialty_ar": key, "specialty_en": key}
 
@@ -290,13 +291,6 @@ def handle_followup_stream(symptoms: str, lang: str, history: list):
 
     full_response = ""
     for chunk in generate_conversational_stream(symptoms, lang, history):
-        try:
-            parsed = _json.loads(chunk)
-            if parsed.get("type") == "alert":
-                yield f"data: {_json.dumps(parsed, ensure_ascii=False)}\n\n"
-                continue
-        except Exception:
-            pass
         full_response += chunk
         yield f"data: {_json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"
 
@@ -329,18 +323,12 @@ def is_symptoms_too_vague(symptoms: str, diseases: list) -> bool:
         return True
     if len(symptoms.strip()) < MIN_SYMPTOMS_CHARS:
         return True
-    
-    # Si on n'a pas de maladies dans la DB, on laisse quand même Gemini répondre
-    # au lieu de bloquer avec un message générique.
     if not diseases:
-        return False
-        
+        return True
     best_confidence = max(d.get("confidence", 0) for d in diseases)
     if best_confidence < MIN_DISEASES_CONFIDENCE:
-        # Même si la confiance est faible, on laisse Gemini tenter une analyse
-        return False
+        return True
     return False
-
 
 
 def translate_symptoms(symptoms: str) -> str:
@@ -379,8 +367,53 @@ def _stream_static_response(response: str, lang: str):
     yield "data: [DONE]\n\n"
 
 
+# Patterns indiquant que le patient décrit un antécédent chronique
+# (et non un symptôme aigu du moment)
+_ANTECEDENT_PATTERNS = [
+    "j'ai de l'hypertension", "j ai de l hypertension",
+    "j'ai de l'", "j ai de l ",
+    "je suis hypertendu", "je suis hypertensif", "je suis hypertensive",
+    "j'ai le diabète", "j ai le diabete", "je suis diabétique", "je suis diabetique",
+    "antécédents de", "antecedents de",
+    "je prends des médicaments", "je prends des medicaments",
+    "sous traitement pour", "traitement pour l'",
+    "i have hypertension", "i'm hypertensive", "i am hypertensive",
+    "i have diabetes", "i'm diabetic", "i am diabetic",
+    "history of hypertension", "history of diabetes",
+    "known hypertension", "known diabetic",
+]
+
+# Mots de maladies chroniques à retirer de la query ChromaDB
+# quand des symptômes aigus sont aussi présents
+_CHRONIC_WORDS_TO_STRIP = {
+    "hypertension", "hypertendu", "hypertensif", "hypertensive",
+    "diabète", "diabete", "diabétique", "diabetique",
+    "cholestérol", "cholesterol", "hypercholestérolémie",
+}
+
+
+def _build_chroma_query(symptoms: str) -> str:
+    """
+    Si le message mélange antécédents chroniques + symptômes aigus,
+    retire les mots d'antécédents pour que ChromaDB cherche les symptômes aigus.
+    Les antécédents vont dans le prompt Gemini (medical_context), pas dans ChromaDB.
+    """
+    lower = symptoms.lower()
+    if not any(pat in lower for pat in _ANTECEDENT_PATTERNS):
+        return symptoms  # Pas d'antécédents détectés → query inchangée
+
+    words = symptoms.split()
+    cleaned = [w for w in words if w.lower().rstrip(",.;:!?") not in _CHRONIC_WORDS_TO_STRIP]
+    result = " ".join(cleaned).strip()
+    if result:
+        logger.info("Antécédents retirés de la query ChromaDB: '%s' → '%s'", symptoms[:60], result[:60])
+        return result
+    return symptoms  # Sécurité : ne jamais retourner une query vide
+
+
 def _run_rag_pipeline(symptoms: str, lang: str, symptoms_en: str, k: int = 15) -> list:
-    diseases = multi_query_search(symptoms, lang, search_diseases, k=k)
+    chroma_query = _build_chroma_query(symptoms)
+    diseases = multi_query_search(chroma_query, lang, search_diseases, k=k)
     diseases = rerank(diseases, symptoms_en, symptoms)
     if diseases:
         diseases = apply_clinical_rules(
@@ -455,7 +488,7 @@ def process_chat(
         lang            = lang,
         history         = truncated_history,
         prompt_style    = params.get("prompt_style", 2),
-        medical_context = medical_context,   # ← NOUVEAU
+        medical_context = medical_context,   
     )
     recommendation_prompt = build_recommendation_prompt(
         symptoms=symptoms, diseases=diseases, lang=lang,
@@ -501,13 +534,17 @@ def _get_recommended_doctors(specialist: dict, patient) -> list:
             find_doctors_near_patient,
             get_patient_location,
         )
-        specialist_key = specialist.get("specialty_en", "general")
-        location       = get_patient_location(patient)
+        specialist_key = (
+            specialist.get("specialty_fr") or specialist.get("specialty_en") or "général"
+        ).lower()
+        location = get_patient_location(patient)
         return find_doctors_near_patient(
-            specialist_key  = specialist_key,
-            patient_city    = location["city"],
-            patient_wilaya  = location["wilaya"],
-            limit           = 3,
+            specialist_key = specialist_key,
+            patient_city   = location["city"],
+            patient_wilaya = location["wilaya"],
+            patient_lat    = location.get("lat"),
+            patient_lon    = location.get("lon"),
+            limit          = 3,
         )
     except Exception as e:
         logger.warning("Recommandation médecin échouée: %s", e)
@@ -523,7 +560,7 @@ def process_chat_stream(
     lang:            str  = "fr",
     history:         list = None,
     patient=None,
-    medical_context: str  = "",   # ← NOUVEAU
+    medical_context: str  = "",   
 ):
     import json as _json
 
@@ -605,32 +642,41 @@ def process_chat_stream(
         yield f"data: {_json.dumps(meta, ensure_ascii=False)}\n\n"
 
         full_response = ""
-        for chunk in generate_diagnosis_stream(
-            symptoms        = symptoms,
-            diseases        = diseases,
-            lang            = lang,
-            history         = truncated_history,
-            prompt_style    = params.get("prompt_style", 2),
-            medical_context = medical_context,   # ← NOUVEAU
-        ):
-            try:
-                parsed = _json.loads(chunk)
-                if parsed.get("type") == "alert":
-                    yield f"data: {_json.dumps(parsed, ensure_ascii=False)}\n\n"
-                    continue
-            except Exception:
-                pass
-            full_response += chunk
-            yield f"data: {_json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"
+        gemini_ok = True
+        try:
+            for chunk in generate_diagnosis_stream(
+                symptoms        = symptoms,
+                diseases        = diseases,
+                lang            = lang,
+                history         = truncated_history,
+                prompt_style    = params.get("prompt_style", 2),
+                medical_context = medical_context,
+            ):
+                full_response += chunk
+                yield f"data: {_json.dumps({'type': 'chunk', 'text': chunk}, ensure_ascii=False)}\n\n"
+        except Exception as gen_err:
+            logger.warning("Gemini text generation failed: %s — sending fallback", gen_err)
+            gemini_ok = False
+            fallback = (
+                "⚠️ L'analyse textuelle est temporairement indisponible (quota IA dépassé), "
+                "mais les hypothèses diagnostiques ont été identifiées. "
+                "Consultez les résultats ci-contre et prenez rendez-vous avec le spécialiste recommandé."
+            )
+            full_response = fallback
+            yield f"data: {_json.dumps({'type': 'chunk', 'text': fallback}, ensure_ascii=False)}\n\n"
 
-        pending_reco = reco_future.result()
+        try:
+            pending_reco = reco_future.result()
+        except Exception:
+            pending_reco = ""
 
     yield f"data: {_json.dumps({'type': 'recommendation', 'text': pending_reco}, ensure_ascii=False)}\n\n"
     yield "data: [DONE]\n\n"
 
-    save_to_cache(
-        symptoms=symptoms, symptoms_en=symptoms_en, lang=lang,
-        response=full_response, recommendation=pending_reco,
-        diseases=diseases[:3], specialist=specialist,
-        urgency=top_disease.get("urgency", "modéré"),
-    )
+    if gemini_ok:
+        save_to_cache(
+            symptoms=symptoms, symptoms_en=symptoms_en, lang=lang,
+            response=full_response, recommendation=pending_reco,
+            diseases=diseases[:3], specialist=specialist,
+            urgency=top_disease.get("urgency", "modéré"),
+        )

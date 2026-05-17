@@ -12,6 +12,7 @@ from .views import (
     TrainingDataView,
     ConfirmRecommendationView,
     SessionListView,
+    SessionDetailView,
     DoctorPatientInteractionsView,
 )
 
@@ -24,6 +25,7 @@ urlpatterns = [
     path("chat/history/",                HistoryView.as_view(),               name="ai-history"),
     path("chat/confirm-recommendation/", ConfirmRecommendationView.as_view(), name="ai-confirm-reco"),
     path("chat/sessions/",               SessionListView.as_view(),           name="ai-sessions"),
+    path("chat/sessions/<int:session_id>/", SessionDetailView.as_view(),      name="ai-session-detail"),
 
     # ── Médecin — voir conversations IA ──────────────────────
     path("doctor/interactions/",         DoctorPatientInteractionsView.as_view(), name="ai-doctor-interactions"),

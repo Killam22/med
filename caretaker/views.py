@@ -201,19 +201,60 @@ class CaretakerDashboardView(APIView):
         user = request.user
         my_requests = CareRequest.objects.filter(
             caretaker__user=user, status='accepted'
-        ).select_related('patient')
+        ).select_related('patient', 'patient__patient_profile')
+
+        def build_patient(r):
+            u = r.patient  # CustomUser
+            from datetime import date
+            age = None
+            if u.date_of_birth:
+                today = date.today()
+                age = today.year - u.date_of_birth.year - (
+                    (today.month, today.day) < (u.date_of_birth.month, u.date_of_birth.day)
+                )
+            try:
+                patient_profile = u.patient_profile
+                conditions = list(
+                    patient_profile.antecedents
+                    .filter(status__in=['active', 'chronic'])
+                    .values_list('name', flat=True)[:5]
+                )
+                patient_id = patient_profile.id
+                try:
+                    mp = patient_profile.medical_profile
+                    emergency_contact = mp.emergency_contact_name or ""
+                    emergency_phone = mp.emergency_contact_phone or ""
+                except Exception:
+                    emergency_contact = ""
+                    emergency_phone = ""
+            except Exception:
+                conditions = []
+                patient_id = u.id
+                emergency_contact = ""
+                emergency_phone = ""
+            name = u.get_full_name()
+            initials = "".join(w[0] for w in name.split() if w).upper()[:2] or "?"
+            return {
+                "id": patient_id,
+                "user_id": u.id,
+                "care_request_id": str(r.id),
+                "name": name,
+                "initials": initials,
+                "age": age,
+                "gender": getattr(u, 'sex', None),
+                "city": getattr(u, 'city', ""),
+                "address": getattr(u, 'address', "") or "",
+                "phone": getattr(u, 'phone', "") or "",
+                "emergencyContact": emergency_contact,
+                "emergencyPhone": emergency_phone,
+                "conditions": conditions,
+                "condition": conditions[0] if conditions else "",
+                "start_date": r.start_date,
+                "end_date": r.end_date,
+            }
 
         data = {
-            "my_patients": [
-                {
-                    "id": r.patient.id,
-                    "care_request_id": str(r.id),
-                    "name": r.patient.get_full_name(),
-                    "start_date": r.start_date,
-                    "end_date": r.end_date,
-                }
-                for r in my_requests
-            ],
+            "my_patients": [build_patient(r) for r in my_requests],
             "pending_requests": CareRequest.objects.filter(
                 caretaker__user=user, status='pending'
             ).count(),

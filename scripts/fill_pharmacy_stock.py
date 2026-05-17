@@ -7,11 +7,32 @@ from medications.models import Medication
 from pharmacy.models import Pharmacy, PharmacyStock
 
 # ─── Récupérer la pharmacie ───────────────────────────────────────────────────
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+pharmacy = None
 try:
-    pharmacy = Pharmacy.objects.get(agreement_number='AGR-DEMO-ELSHIFA-2025')
-    print(f"✅ Pharmacie trouvée : {pharmacy.name}")
-except Pharmacy.DoesNotExist:
-    print("❌ Pharmacie El Shifa introuvable. Lancez d'abord create_demo_accounts.py")
+    u = User.objects.get(email='pharmacie.elshifa@demo.com')
+    pharmacist = u.pharmacist_profile
+    try:
+        pharmacy = pharmacist.pharmacy
+    except Exception:
+        # La pharmacie n'existe pas encore, on la crée
+        pharmacy = Pharmacy.objects.create(
+            pharmacist=pharmacist,
+            name='Pharmacie El Shifa',
+            pharm_address='8 Rue Hassiba Ben Bouali',
+            pharm_city='Alger Centre',
+            pharm_phone='0555345679',
+            agreement_number='AGR-DEMO-ELSHIFA-2025',
+        )
+        print(f"✅ Pharmacie créée : {pharmacy.name}")
+    print(f"✅ Pharmacie trouvée : {pharmacy.name} ({pharmacy.pharm_city})")
+except User.DoesNotExist:
+    print("❌ Compte pharmacie.elshifa@demo.com introuvable. Lancez d'abord create_demo_accounts.py")
+    raise SystemExit
+except Exception as e:
+    print(f"❌ Erreur : {e}")
     raise SystemExit
 
 

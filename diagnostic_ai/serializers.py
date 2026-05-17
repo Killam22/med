@@ -13,11 +13,10 @@ class ChatRequestSerializer(serializers.Serializer):
             "required":   "Les symptômes sont obligatoires.",
         }
     )
-    lang       = serializers.ChoiceField(choices=["fr", "ar", "en"], default="fr")
-    history    = serializers.ListField(
+    lang    = serializers.ChoiceField(choices=["fr", "ar", "en"], default="fr")
+    history = serializers.ListField(
         child=serializers.DictField(), required=False, default=list, max_length=20,
     )
-    session_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
 class RecommendedDoctorSerializer(serializers.Serializer):

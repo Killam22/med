@@ -2,28 +2,23 @@
 Django settings for appointment_backend project.
 """
 
-import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Charge back/.env (BASE_DIR pointe sur back/)
-load_dotenv(BASE_DIR / '.env')
+# ── Charger le .env ───────────────────────────────────────────────────────────
+load_dotenv(BASE_DIR / ".env", encoding='utf-8', override=True)
 
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-change-this-in-production-use-env-variable',
-)
+SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
 
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
+DEBUG = True
 
-ALLOWED_HOSTS = [
-    h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()
-]
+ALLOWED_HOSTS = ['*']
 
-# ── Installed Apps ──────────────────────────────────────────────────────────
+# ── Installed Apps ────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -38,8 +33,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'drf_spectacular',
 
-    # Local
+    # Local — Backend principal
     'users',
     'doctors',
     'patients',
@@ -51,15 +47,16 @@ INSTALLED_APPS = [
     'medications',
     'notifications',
     'admin_panel',
-    'drf_spectacular',
     'messaging',
     'settings',
-    'diagnostic_ai'
-    ]
 
-# ── Middleware ───────────────────────────────────────────────────────────────
+    # ✅ Bot IA Diagnostic
+    'diagnostic_ai',
+]
+
+# ── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',   # must be first
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -89,29 +86,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# ── Database ─────────────────────────────────────────────────────────────────
-
-
-
-
+# ── Database ──────────────────────────────────────────────────────────────────
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'medical_db'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-        'OPTIONS': {
-            'client_encoding': 'UTF8',
-        },
+        'ENGINE':   'django.db.backends.postgresql',
+        'NAME':     'medical_db',
+        'USER':     'postgres',
+        'PASSWORD': 'yassir',
+        'HOST':     'localhost',
+        'PORT':     '5432',
+        'OPTIONS':  {'client_encoding': 'UTF8'},
     },
 }
 
-
-
-
-
+# ── Cache ─────────────────────────────────────────────────────────────────────
+# DatabaseCache requis pour le NIH validator du bot IA (partagé entre workers)
+# Après migration, lancer : python manage.py createcachetable
+CACHES = {
+    'default': {
+        'BACKEND':  'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
+    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -124,7 +120,7 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-           'rest_framework.authentication.SessionAuthentication', 
+        'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -132,112 +128,133 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-
     'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '500/hour',
-        'login': '5/minute',    # throttle custom sur la vue token
-        'otp_send': '5/minute', # envoi d'OTP (anti-spam)
-        'diagnosis': '10/day',  # Limite pour l'IA Diagnostic
+        'anon':      '200/hour',
+        'user':      '5000/hour',
+        'login':     '5/minute',
+        'diagnosis': '50/day',    # ✅ NOUVEAU — limite les diagnostics IA à 5/jour/patient
     }
-
 }
 
-# ── Spectacular Settings (OpenAPI) ─────────────────────────────────────────────
+# ── Spectacular (OpenAPI) ─────────────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'MedSmart API',
-    'DESCRIPTION': 'Documentation complète de l\'API pour la plateforme médicale MedSmart (PFE).',
-    'VERSION': '1.0.0',
+    'TITLE':                'MedSmart API',
+    'DESCRIPTION':          'Documentation complète de l\'API MedSmart (PFE).',
+    'VERSION':              '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_PATCH': True,
-    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_SPLIT_PATCH':    True,
+    'COMPONENT_SPLIT_REQUEST':  True,
     'SWAGGER_UI_SETTINGS': {
-        'deepLinking': True,
+        'deepLinking':          True,
         'persistAuthorization': True,
-        'displayOperationId': True,
+        'displayOperationId':   True,
     },
 }
 
 # ── Simple JWT ────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'ACCESS_TOKEN_LIFETIME':  timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS':  True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ── CORS (allow React dev server) ─────────────────────────────────────────────
-CORS_ALLOW_ALL_ORIGINS = True   # dev only — restrict in production
+# ── CORS ──────────────────────────────────────────────────────────────────────
+CORS_ALLOW_ALL_ORIGINS = True  # dev only
 
 # ── Internationalisation ──────────────────────────────────────────────────────
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'Africa/Algiers'
-USE_I18N = True
-USE_TZ = True
+TIME_ZONE     = 'Africa/Algiers'
+USE_I18N      = True
+USE_TZ        = True
 
 # ── Static & Media ────────────────────────────────────────────────────────────
-STATIC_URL = '/static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+STATIC_URL  = '/static/'
+MEDIA_URL   = '/media/'
+MEDIA_ROOT  = BASE_DIR / 'media'
+
+# Taille max upload : 10 MB (pour l'analyse de fichiers médicaux)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@medsmart.dz')
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+# ── Email ─────────────────────────────────────────────────────────────────────
+EMAIL_BACKEND      = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST         = 'smtp.gmail.com'
+EMAIL_USE_TLS      = True
+EMAIL_PORT         = 587
+EMAIL_HOST_USER    = 'medicalsmartapp@gmail.com'
+EMAIL_HOST_PASSWORD = 'yarvxitxohgcjkwo'
+DEFAULT_FROM_EMAIL = 'medicalsmartapp@gmail.com'
 
-# ── Cache (pour les throttles en test et en dev) ──────────────────────────────
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'medsmart-cache',
-    }
-}
+# ══════════════════════════════════════════════════════════════════════════════
+# ✅ CONFIG BOT IA & RAG — diagnostic_ai
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Clé API Gemini (depuis .env)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL",   "gemini-2.5-flash")
+
+# Chemins dataset — dans le projet (BASE_DIR/chroma_db et BASE_DIR/dataset/processed)
+CHROMA_PATH     = str(BASE_DIR / os.getenv("CHROMA_PATH",  "chroma_db"))
+DATASET_PATH    = str(BASE_DIR / os.getenv("DATASET_PATH", "dataset/processed"))
+
+# Modèle embedding multilingue
+EMBEDDING_MODEL = "intfloat/multilingual-e5-large"
+
+# Paramètres RAG
+RAG_TOP_K       = int(os.getenv("RAG_TOP_K", "5"))
+MAX_HISTORY_LEN = 6
 
 # ── Logging ───────────────────────────────────────────────────────────────────
-# Désactive le AdminEmailHandler qui crashe sur Python 3.14 + Django 4.2
-# en raison d'un bug dans django.template.context.__copy__().
 LOGGING = {
-    'version': 1,
+    'version':                  1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {module} — {message}',
+            'style':  '{',
+        },
+    },
     'handlers': {
         'console': {
-            'class': 'logging.StreamHandler',
+            'class':     'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'WARNING',
+        'level':    'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
-            'level': 'WARNING',
+            'handlers':  ['console'],
+            'level':     'WARNING',
             'propagate': False,
         },
         'django.request': {
-            'handlers': ['console'],
-            'level': 'ERROR',
+            'handlers':  ['console'],
+            'level':     'ERROR',
+            'propagate': False,
+        },
+        # ✅ logs du bot IA
+        'diagnostic_ai': {
+            'handlers':  ['console'],
+            'level':     'DEBUG',
+            'propagate': False,
+        },
+        'infrastructure': {
+            'handlers':  ['console'],
+            'level':     'INFO',
             'propagate': False,
         },
     },
 }
-# ── AI Diagnostic Settings ────────────────────────────────────────────────────
-GEMINI_API_KEY  = os.environ.get('GEMINI_API_KEY')
-GEMINI_MODEL    = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
-
-
-
-CHROMA_PATH     = os.path.join(BASE_DIR, 'diagnostic_ai', 'infrastructure', 'vector_db', 'data')
-DATASET_PATH    = os.path.join(BASE_DIR, 'diagnostic_ai', 'services', 'dataset')
-EMBEDDING_MODEL = 'intfloat/multilingual-e5-large'

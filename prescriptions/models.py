@@ -1,4 +1,6 @@
 import uuid
+import hmac
+import hashlib
 import secrets
 from django.db import models
 from django.conf import settings
@@ -90,10 +92,11 @@ class QRToken(models.Model):
     prescription = models.OneToOneField(
         Prescription, on_delete=models.CASCADE, related_name='qr_token'
     )
-    token      = models.CharField(max_length=64, unique=True)
-    is_used    = models.BooleanField(default=False)
-    expires_at = models.DateTimeField()
-    scanned_by = models.ForeignKey(
+    token             = models.CharField(max_length=64, unique=True)
+    digital_signature = models.CharField(max_length=64, blank=True)
+    is_used           = models.BooleanField(default=False)
+    expires_at        = models.DateTimeField()
+    scanned_by        = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True, blank=True,
         on_delete=models.SET_NULL,
@@ -101,16 +104,47 @@ class QRToken(models.Model):
     )
     scanned_at = models.DateTimeField(null=True, blank=True)
 
+    @staticmethod
+    def _compute_signature(token: str, prescription_id: str, doctor_id: int) -> str:
+        """
+        Génère une signature HMAC-SHA256 liant le token à l'ordonnance et au médecin.
+        Prouve que le QR a été émis par notre serveur et n'a pas été falsifié.
+        """
+        secret = getattr(settings, 'SECRET_KEY', 'fallback-secret').encode()
+        payload = f"{token}:{prescription_id}:{doctor_id}".encode()
+        return hmac.new(secret, payload, hashlib.sha256).hexdigest()
+
     def save(self, *args, **kwargs):
         if not self.token:
             self.token = secrets.token_urlsafe(48)
         if not self.expires_at:
-            # expire dans 3 mois par défaut
             self.expires_at = timezone.now() + timedelta(days=90)
+        # Génère la signature numérique à la création
+        if not self.digital_signature and self.prescription_id:
+            try:
+                doc_id = self.prescription.doctor.id
+                self.digital_signature = self._compute_signature(
+                    self.token, str(self.prescription_id), doc_id
+                )
+            except Exception:
+                pass
         super().save(*args, **kwargs)
 
     def is_valid(self):
         return not self.is_used and self.expires_at > timezone.now()
+
+    def verify_signature(self) -> bool:
+        """Vérifie que le QR n'a pas été falsifié depuis son émission."""
+        if not self.digital_signature:
+            return False
+        try:
+            doc_id = self.prescription.doctor.id
+            expected = self._compute_signature(
+                self.token, str(self.prescription_id), doc_id
+            )
+            return hmac.compare_digest(self.digital_signature, expected)
+        except Exception:
+            return False
 
 
 class CNASCoverage(models.Model):

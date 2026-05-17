@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
 from consultations.serializers import ConsultationPatientSerializer as ConsultationSerializer
-from prescriptions.serializers import PrescriptionSerializer
 
 class CaretakerServiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,25 +24,53 @@ class CareMessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'sender', 'sender_name', 'content', 'created_at']
 
 class CareRequestSerializer(serializers.ModelSerializer):
-    caretaker_name = serializers.CharField(source='caretaker.user.get_full_name', read_only=True)
-    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
-    messages = CareMessageSerializer(many=True, read_only=True)
-    
-    # Le dossier médical ne sera injecté que si le statut est "ACCEPTED"
+    caretaker_name     = serializers.CharField(source='caretaker.user.get_full_name', read_only=True)
+    patient_name       = serializers.CharField(source='patient.get_full_name', read_only=True)
+    patient_age        = serializers.SerializerMethodField()
+    patient_city       = serializers.CharField(source='patient.city', read_only=True)
+    patient_phone      = serializers.CharField(source='patient.phone', read_only=True)
+    patient_address    = serializers.CharField(source='patient.address', read_only=True)
+    patient_sex        = serializers.CharField(source='patient.sex', read_only=True)
+    patient_conditions = serializers.SerializerMethodField()
+    location           = serializers.CharField(source='patient.city', read_only=True)
+    condition          = serializers.CharField(source='patient_message', read_only=True)
+    messages           = CareMessageSerializer(many=True, read_only=True)
+
+    # Dossier médical complet — uniquement si statut ACCEPTED
     patient_medical_dossier = serializers.SerializerMethodField()
 
     class Meta:
         model = CareRequest
         fields = [
-            'id', 'patient', 'patient_name', 'caretaker', 'caretaker_name',
-            'status', 'start_date', 'end_date', 'patient_message',
-            'created_at', 'messages', 'patient_medical_dossier'
+            'id', 'patient', 'patient_name', 'patient_age', 'patient_sex',
+            'patient_city', 'patient_address', 'patient_phone', 'patient_conditions',
+            'location', 'caretaker', 'caretaker_name',
+            'status', 'start_date', 'end_date', 'patient_message', 'condition',
+            'created_at', 'messages', 'patient_medical_dossier',
         ]
         read_only_fields = ['status', 'patient']
         extra_kwargs = {
             'start_date': {'required': False, 'allow_null': True},
             'patient_message': {'required': False, 'allow_blank': True},
         }
+
+    def get_patient_age(self, obj):
+        from datetime import date
+        dob = obj.patient.date_of_birth
+        if not dob:
+            return None
+        today = date.today()
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    def get_patient_conditions(self, obj):
+        try:
+            return list(
+                obj.patient.patient_profile.antecedents
+                .filter(status__in=['active', 'chronic'])
+                .values_list('name', flat=True)[:6]
+            )
+        except Exception:
+            return []
 
     def validate_caretaker(self, value):
         """Empêcher l'envoi de requêtes à des gardes-malades inactifs ou non vérifiés."""
@@ -54,22 +81,27 @@ class CareRequestSerializer(serializers.ModelSerializer):
         return value
 
     def get_patient_medical_dossier(self, obj):
-        # SECURITE : Accès strict accordé UNIQUEMENT au garde-malade ciblé et SI le contrat est accepté
         request = self.context.get('request')
         if obj.status == 'accepted' and request and request.user == obj.caretaker.user:
-            
             consultations_data = []
-            # Il FAUT passer par patient_profile car consultations_as_patient est sur le modèle Patient
-            if hasattr(obj.patient, 'patient_profile'):
-                consultations = obj.patient.patient_profile.consultations_as_patient.all()
-                consultations_data = ConsultationSerializer(consultations, many=True).data
-            
+            blood_type = None
+            emergency_contact = None
+            try:
+                profile = obj.patient.patient_profile
+                consultations_data = ConsultationSerializer(
+                    profile.consultations_as_patient.all(), many=True
+                ).data
+                mp = profile.medical_profile
+                blood_type = mp.blood_group or None
+                emergency_contact = mp.emergency_contact_name or None
+            except Exception:
+                pass
             return {
                 "access_granted": True,
-                "blood_type": obj.patient.blood_type,
-                "emergency_contact": obj.patient.emergency_contact,
+                "blood_type": blood_type,
+                "emergency_contact": emergency_contact,
                 "consultations": consultations_data,
-                "medical_notes": "Accès autorisé aux antécédents et ordonnances pour le soin."
+                "medical_notes": "Accès autorisé aux antécédents et ordonnances pour le soin.",
             }
         return {"access_granted": False, "message": "Accès bloqué. Demande non acceptée."}
 

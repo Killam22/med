@@ -137,14 +137,23 @@ def check_symptom_alert(symptoms_fr: str, symptoms_en: str) -> dict:
 
 def format_alert_for_response(alert: dict, lang: str = "fr") -> str:
     """
-    Retourne un événement SSE structuré de type "alert" (JSON).
-    Le frontend parse ce JSON et affiche le bandeau d'urgence séparément
-    du texte de l'IA — les === et le texte brut ne s'affichent plus.
+    Formate le message d'alerte à injecter EN TÊTE de la réponse de l'IA.
+
+    Usage dans ton view/service :
+        alert = check_symptom_alert(symptoms_fr, symptoms_en)
+        prefix = format_alert_for_response(alert, lang="fr")
+        final_response = prefix + "\\n\\n" + ai_response
     """
-    import json
     msg = alert["message_fr"] if lang == "fr" else alert["message_en"]
     level = alert["level"]
-    return json.dumps({"type": "alert", "level": level, "message": msg}, ensure_ascii=False)
+
+    if level == "critical":
+        separator = "=" * 50
+        return f"{separator}\\n{msg}\\n{separator}"
+    elif level == "moderate":
+        return f"{msg}"
+    else:
+        return f"{msg}"
 
 
 # ============================================================
@@ -192,6 +201,15 @@ STRICT_DISEASES = {
     "bipolar":            ["mania", "extreme mood", "psychosis"],
     "tourette":           ["tic", "vocal tic", "motor tic"],
     "cystic fibrosis":    ["chronic lung infection", "digestive enzyme", "genetic"],
+    "tietze":             ["chest", "rib", "sternum", "costal", "poitrine", "côte", "cote", "thorax", "sternal"],
+    "costochondritis":    ["chest", "rib", "sternum", "costal", "poitrine", "côte", "cote", "thorax"],
+    "costochondrite":     ["chest", "rib", "sternum", "costal", "poitrine", "côte", "cote", "thorax"],
+    "pericarditis":       ["chest pain", "palpitations", "cardiac", "poitrine", "coeur", "thorax"],
+    "pleuritis":          ["chest", "breathing", "pleurisy", "poitrine", "thorax", "respiration"],
+    "pleurisy":           ["chest", "breathing", "pleurisy", "poitrine", "thorax", "respiration"],
+    "bell palsy":         ["facial paralysis", "facial drooping", "paralysis", "paralysie", "visage", "facial", "drooping", "seventh nerve"],
+    "bell's palsy":       ["facial paralysis", "facial drooping", "paralysis", "paralysie", "visage", "facial", "drooping"],
+    "multiple myeloma":   ["bone pain", "douleur osseuse", "back pain", "anemia", "weight loss", "myeloma"],
 }
 
 STRICT_CONTEXT_BOOSTS = {
@@ -235,11 +253,24 @@ COMMON_DISEASES = [
     "insomnia", "fatigue",
     "vitamin deficiency", "iron deficiency",
     "appendicitis", "appendicite",
+    "dental", "toothache", "caries", "gingivitis", "periodontitis", "pulpitis",
+    "dental abscess", "temporomandibular",
     "parkinson", "alzheimer",
     "epilepsy", "epilepsie",
     "hepatitis", "hepatite",
     "pancreatitis",
     "kidney stones", "calculs",
+    "bell palsy", "bell's palsy", "facial palsy", "facial nerve palsy",
+    "multiple myeloma", "myeloma",
+    "orthostatic hypotension", "hypotension orthostatique",
+    "restless legs", "jambes sans repos",
+    # Traumatismes musculo-squelettiques — très fréquents, pas besoin de contexte strict
+    "sprain", "ankle sprain", "ankle injury", "ligament injury",
+    "fracture", "bone fracture",
+    "contusion", "bruise",
+    "musculoskeletal", "orthopedic", "orthopaedic",
+    "entorse", "foulure",
+    "dislocation",
 ]
 
 DISEASE_URGENCY_TIER = {
@@ -362,7 +393,7 @@ def apply_clinical_rules(symptoms_fr: str, symptoms_en: str, diseases: list) -> 
             continue
 
         match_score = symptom_match_score(symptoms_combined, key_symptoms)
-        if match_score > 0.1 or confidence > 0.75:
+        if match_score > 0.1 or (confidence > 0.82 and match_score > 0.03):
             disease["confidence"] = round((confidence * 0.5) + (match_score * 0.5), 2)
             filtered.append(disease)
             logger.debug("Autre '%s' — conf: %.2f", name_en, disease["confidence"])
@@ -372,7 +403,8 @@ def apply_clinical_rules(symptoms_fr: str, symptoms_en: str, diseases: list) -> 
     filtered.sort(key=lambda d: d.get("confidence", 0), reverse=True)
 
     if not filtered and diseases:
-        logger.warning("Toutes filtrees — garde top 3: %s", diseases[0].get("name_en", ""))
-        filtered = diseases[:3]
+        logger.warning("Toutes filtrees — fallback symptom-aware")
+        fallback = [d for d in diseases[:8] if symptom_match_score(symptoms_combined, d.get("key_symptoms", "")) > 0.05]
+        filtered = fallback if fallback else diseases[:2]
 
     return filtered

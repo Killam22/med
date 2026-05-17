@@ -1,7 +1,6 @@
 # diagnostic_ai/services/gemini_service.py
 
 import time
-import base64
 import logging
 from google import genai
 from google.genai import types
@@ -424,7 +423,6 @@ Termine par encourager à consulter un médecin si pertinent.
 """
 
 
-# ✅ MODIFIÉ — accepte medical_context pour personnaliser le diagnostic
 def build_diagnosis_prompt(symptoms, diseases, lang, history, prompt_style=2,
                            medical_context: str = ""):
     lang_instr  = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
@@ -526,10 +524,11 @@ def generate(prompt, temperature=0.7, top_p=0.9, max_retries=3):
             error_str = str(e)
             if "RESOURCE_EXHAUSTED" in error_str:
                 if attempt < max_retries - 1:
-                    wait = 60 * (attempt + 1)
+                    wait = 5 * (attempt + 1)
                     logger.warning("Quota Gemini dépassé — attente %ds", wait)
                     time.sleep(wait)
                 else:
+                    logger.error("Quota Gemini épuisé après %d tentatives", max_retries)
                     raise ValueError("Le service IA est temporairement indisponible. Veuillez réessayer dans quelques minutes.")
             elif "UNAVAILABLE" in error_str or "503" in error_str:
                 if attempt < max_retries - 1:
@@ -568,13 +567,13 @@ def generate_stream(prompt, temperature=0.7, top_p=0.9, max_retries=3):
             error_str = str(e)
             if "RESOURCE_EXHAUSTED" in error_str:
                 if attempt < max_retries - 1:
-                    wait = 60 * (attempt + 1)
+                    wait = 5 * (attempt + 1)
                     logger.warning("Quota Gemini stream dépassé — attente %ds", wait)
                     time.sleep(wait)
                     continue
                 else:
-                    yield "\n⚠️ Service temporairement indisponible. Réessayez dans quelques minutes."
-                    return
+                    logger.error("Quota Gemini épuisé après %d tentatives", max_retries)
+                    raise ValueError("Service temporairement indisponible. Réessayez dans quelques minutes.")
             elif "UNAVAILABLE" in error_str or "503" in error_str:
                 if attempt < max_retries - 1:
                     wait = 3 * (attempt + 1)
@@ -582,12 +581,11 @@ def generate_stream(prompt, temperature=0.7, top_p=0.9, max_retries=3):
                     time.sleep(wait)
                     continue
                 else:
-                    yield "\n⚠️ Service surchargé. Réessayez dans quelques instants."
-                    return
+                    logger.error("Gemini stream indisponible après %d tentatives", max_retries)
+                    raise ValueError("Service surchargé. Réessayez dans quelques instants.")
             else:
                 logger.error("Gemini stream error: %s", e)
-                yield "\n⚠️ Une erreur est survenue."
-                return
+                raise
 
 
 # ══════════════════════════════════════════════

@@ -22,6 +22,7 @@ from diagnostic_ai.models import (
 )
 from diagnostic_ai.services.rag_service import process_chat, process_chat_stream
 from diagnostic_ai.services.genetic.optimizer import GeneticOptimizer
+from diagnostic_ai.services.drug_safety_service import build_safety_context
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,19 @@ URGENCY_10_KEYWORDS = [
     "seizure", "paralysis", "stroke", "severe bleeding", "cannot breathe",
     "ألم صدري", "ألم في الصدر", "فقدان وعي", "تشنج", "شلل",
 ]
+
+# Maladies dont la présence dans le top-3 force l'urgence à "urgent"
+URGENT_DISEASE_NAMES = {
+    "appendicitis", "appendicite",
+    "meningitis", "méningite",
+    "heart attack", "myocardial infarction",
+    "pulmonary embolism", "embolie pulmonaire",
+    "aortic dissection", "dissection aortique",
+    "sepsis",
+    "stroke", "cerebrovascular", "brain infarction", "avc",
+    "heart failure", "cardiac failure", "congestive heart",
+    "pneumonia", "bacterial pneumonia",
+}
 
 URGENCY_SCORES = {"urgent": 3, "modéré": 2, "faible": 1}
 
@@ -73,6 +87,35 @@ def _get_patient_medical_context(patient, lang: str = "fr") -> str:
 
     try:
         lines = []
+
+        # ── Âge et genre ───────────────────────────────────────────────
+        try:
+            user = getattr(patient, 'user', None)
+            age  = getattr(patient, 'age', None)
+            sex  = getattr(user, 'sex', None) if user else None
+
+            if age:
+                if lang == "ar":
+                    lines.append(f"العمر: {age} سنة")
+                elif lang == "en":
+                    lines.append(f"Age: {age} years old")
+                else:
+                    lines.append(f"Âge: {age} ans")
+
+            if sex:
+                sex_labels = {
+                    "male":   {"fr": "Homme",  "en": "Male",   "ar": "ذكر"},
+                    "female": {"fr": "Femme",  "en": "Female", "ar": "أنثى"},
+                }
+                label = sex_labels.get(sex, {}).get(lang, sex)
+                if lang == "ar":
+                    lines.append(f"الجنس: {label}")
+                elif lang == "en":
+                    lines.append(f"Gender: {label}")
+                else:
+                    lines.append(f"Genre: {label}")
+        except Exception:
+            pass
 
         # ── Allergies ──────────────────────────────────────────────────
         try:
@@ -145,26 +188,105 @@ def _get_patient_medical_context(patient, lang: str = "fr") -> str:
             footer = "════════════════════════════════════"
             note   = "⚠️ Tiens compte de ces informations dans ton analyse. Évite de recommander des médicaments en conflit avec ses traitements actuels ou ses allergies connues."
 
-        return "\n".join([header] + lines + [note, footer])
+        # ── Alertes interactions médicamenteuses ───────────────────────
+        safety_block = build_safety_context(patient, lang)
+
+        parts = [header] + lines + [note, footer]
+        if safety_block:
+            parts.append("")
+            parts.append(safety_block)
+
+        return "\n".join(parts)
 
     except Exception as e:
         logger.warning("Impossible de récupérer le contexte médical: %s", e)
         return ""
 
 
+DENTAL_KEYWORDS = {
+    "dental abscess", "abcès dentaire", "abces dentaire",
+    "pulpitis", "pulpite",
+}
+DENTAL_SPREAD_PAIRS = [
+    ({"mal aux dents", "douleur dentaire", "dent", "toothache"},
+     {"fièvre", "fever", "maux de tête", "headache", "mâchoire", "machoire"}),
+]
+
+ALWAYS_LOW_DISEASES = {
+    "rhinitis", "allergic rhinitis", "hayfever", "hay fever",
+    "common cold", "rhinorrhea", "rhinopharyngitis",
+    "allergy", "irritable bowel", "ibs",
+    "reflux", "gastroesophageal", "gerd",
+    "gastritis", "peptic ulcer", "heartburn", "dyspepsia",
+    "psoriasis", "eczema", "atopic dermatitis",
+    "irritable colon", "spastic colon", "functional bowel",
+}
+
+# Ces maladies bénignes passent à "modéré" si douleur franche présente
+PAIN_UPGRADE_DISEASES = {"gastritis", "peptic ulcer", "heartburn", "dyspepsia"}
+PAIN_UPGRADE_KEYWORDS = {"douleur", "pain", "severe", "sévère", "crampe", "cramp"}
+
+FORCE_MODERE_NAMES = {
+    "covid", "coronavirus", "sars-cov",
+    "influenza", "flu", "grippe",
+    "sinusitis", "rhinosinusitis",
+    "bronchitis",
+    "asthma", "chronic bronchitis",
+}
+
+# Signaux de traumatisme aigu → urgence au moins modéré
+ACUTE_TRAUMA_KEYWORDS = {
+    "chute", "tomber", "tombé", "tombée", "je suis tombé",
+    "fall", "fell", "accident", "trauma", "traumatisme",
+    "tordu", "entorse", "foulé", "sprain", "twisted",
+    "coup", "choc", "impact", "blessure",
+}
+
 def compute_real_urgency(symptoms: str, diseases: list) -> str:
-    if any(kw in symptoms.lower() for kw in URGENCY_10_KEYWORDS):
+    sym = symptoms.lower()
+    if any(kw in sym for kw in URGENCY_10_KEYWORDS):
         return "urgent"
     if not diseases:
         return "modéré"
-    counts = {"urgent": 0, "modéré": 0, "faible": 0}
-    for d in diseases:
-        u = d.get("urgency", "modéré").lower()
-        if u in counts:
-            counts[u] += 1
-    if counts["urgent"] >= 2:
+    # Abcès dentaire ou pulpite → modéré
+    if any(kw in sym for kw in DENTAL_KEYWORDS):
+        return "modéré"
+    top_names_str = " ".join(d.get("name_en", "").lower() for d in diseases[:3])
+    if "abscess" in top_names_str or "pulpit" in top_names_str:
+        return "modéré"
+    # Infections respiratoires communes (COVID, grippe, sinusite…) → cap à modéré
+    # (avant le check URGENT_DISEASE_NAMES pour éviter faux positifs pneumonie)
+    for d in diseases[:2]:
+        name_en = d.get("name_en", "").lower()
+        if any(m in name_en for m in FORCE_MODERE_NAMES):
+            return "modéré"
+    # Maladie critique dans le top-3 → urgent
+    for d in diseases[:3]:
+        name_en = d.get("name_en", "").lower()
+        if any(u in name_en for u in URGENT_DISEASE_NAMES):
+            return "urgent"
+    # Douleur dentaire + fièvre/maux de tête → modéré (risque d'infection)
+    for dental_set, spread_set in DENTAL_SPREAD_PAIRS:
+        if any(kw in sym for kw in dental_set) and any(kw in sym for kw in spread_set):
+            return "modéré"
+    # Traumatisme aigu (chute/choc + gonflement/douleur) → au moins modéré
+    if any(kw in sym for kw in ACUTE_TRAUMA_KEYWORDS):
+        return "modéré"
+    # Conditions bénignes connues → faible (rhinite allergique, rhume, etc.)
+    for d in diseases[:3]:
+        name_en = d.get("name_en", "").lower()
+        if any(low in name_en for low in ALWAYS_LOW_DISEASES):
+            if (any(low in name_en for low in PAIN_UPGRADE_DISEASES)
+                    and any(kw in sym for kw in PAIN_UPGRADE_KEYWORDS)):
+                return "modéré"
+            return "faible"
+    # Règle générale
+    top_urgency = diseases[0].get("urgency", "modéré").lower() if diseases else "modéré"
+    if top_urgency == "urgent":
         return "urgent"
-    elif counts["modéré"] >= 1:
+    has_urgent = any(d.get("urgency", "").lower() == "urgent" for d in diseases)
+    has_modere = any(d.get("urgency", "").lower() == "modéré" for d in diseases)
+    if has_urgent or has_modere:
         return "modéré"
     return "faible"
 
@@ -183,23 +305,35 @@ def _get_patient(request):
         return None
 
 
-def _save_session(patient, lang: str, user_msg: str, bot_response: str, session_id: int = None):
-    if patient is None:
-        return None
+def _save_session(patient, lang: str, user_msg: str, bot_response: str, session_id: int = None) -> int | None:
     try:
         if session_id:
             try:
                 session = ConversationSession.objects.get(id=session_id, patient=patient)
             except ConversationSession.DoesNotExist:
-                session = ConversationSession.objects.create(
-                    patient=patient, lang=lang, title=user_msg[:60], history=[],
-                )
+                session = None
         else:
-            session = ConversationSession.objects.create(
-                patient=patient, lang=lang, title=user_msg[:60], history=[],
+            session = None
+
+        if session is None:
+            session, created = ConversationSession.objects.get_or_create(
+                patient   = patient,
+                is_active = True,
+                lang      = lang,
+                id        = session_id,
+                defaults  = {"title": user_msg[:60], "history": []},
+            ) if session_id else (
+                ConversationSession.objects.create(
+                    patient = patient,
+                    lang    = lang,
+                    title   = user_msg[:60],
+                    history = [],
+                ), True
             )
+
         session.add_message(role="user",      content=user_msg)
         session.add_message(role="assistant", content=bot_response)
+        session.auto_title()
         logger.info("Session #%d mise à jour (%d messages)", session.id, session.message_count)
         return session.id
     except Exception as e:
@@ -211,16 +345,14 @@ def _save_session(patient, lang: str, user_msg: str, bot_response: str, session_
 # CHAT NORMAL
 # ══════════════════════════════════════════════════════════════
 
-ALLOWED_AI_ROLES = {'patient', 'caretaker'}
-
 class ChatView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes   = [DiagnosisRateThrottle]   # ← Rate limiting
 
     def post(self, request):
-        if request.user.role not in ALLOWED_AI_ROLES:
+        if request.user.role != 'patient':
             return Response(
-                {"error": "Seuls les patients et gardes-malades peuvent utiliser le bot IA."},
+                {"error": "Seuls les patients peuvent utiliser le bot IA."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -253,7 +385,7 @@ class ChatView(APIView):
 
         needs_more_details  = result.get("needs_more_details", False)
         diseases            = result.get("diseases", [])
-        diseases_sorted     = sort_diseases_by_danger(diseases)
+        # Keep probability order from apply_smart_scoring; danger sort is only for urgency/specialist
         real_urgency        = compute_real_urgency(data["symptoms"], diseases)
         recommended_doctors = result.get("recommended_doctors", [])
 
@@ -290,7 +422,7 @@ class ChatView(APIView):
         return Response({
             "interaction_id":      interaction.id,
             "response":            result["response"],
-            "diseases":            diseases_sorted,
+            "diseases":            diseases,
             "specialist":          result["specialist"],
             "urgency":             real_urgency,
             "ask_recommendation":  result.get("ask_recommendation", False) and not needs_more_details,
@@ -309,9 +441,9 @@ class ChatStreamView(APIView):
     throttle_classes   = [DiagnosisRateThrottle]   # ← Rate limiting
 
     def post(self, request):
-        if request.user.role not in ALLOWED_AI_ROLES:
+        if request.user.role != 'patient':
             return Response(
-                {"error": "Seuls les patients et gardes-malades peuvent utiliser le bot IA."},
+                {"error": "Seuls les patients peuvent utiliser le bot IA."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -341,9 +473,13 @@ class ChatStreamView(APIView):
                     lang            = lang,
                     history         = data.get("history", []),
                     patient         = patient,
-                    medical_context = medical_context,   # ← NOUVEAU
+                    medical_context = medical_context,
                 ):
-                    if event.startswith("data: ") and event.strip() != "data: [DONE]":
+                    # Skip [DONE] from rag_service — we send our own at the very end
+                    if event.strip() == "data: [DONE]":
+                        continue
+
+                    if event.startswith("data: "):
                         try:
                             payload = json.loads(event[6:].strip())
                             if payload.get("type") == "meta":
@@ -355,12 +491,10 @@ class ChatStreamView(APIView):
                                 pending_reco        = payload.get("pending_recommendation")
                                 recommended_doctors = payload.get("recommended_doctors", [])
 
-                                diseases_sorted = sort_diseases_by_danger(diseases)
-                                real_urgency    = compute_real_urgency(data["symptoms"], diseases)
-
+                                real_urgency = compute_real_urgency(data["symptoms"], diseases)
                                 corrected_meta = {
                                     "type":                   "meta",
-                                    "diseases":               diseases_sorted,
+                                    "diseases":               diseases,
                                     "specialist":             specialist,
                                     "urgency":                real_urgency,
                                     "needs_more_details":     needs_details,
@@ -407,17 +541,20 @@ class ChatStreamView(APIView):
                     yield f"data: {json.dumps({'type': 'interaction_id', 'id': interaction.id}, ensure_ascii=False)}\n\n"
 
                     if not needs_details and patient:
-                        saved_sid = _save_session(
+                        saved_id = _save_session(
                             patient      = patient,
                             lang         = lang,
                             user_msg     = data["symptoms"],
                             bot_response = full_response,
                             session_id   = data.get("session_id"),
                         )
-                        if saved_sid:
-                            yield f"data: {json.dumps({'type': 'session_saved', 'session_id': saved_sid}, ensure_ascii=False)}\n\n"
+                        if saved_id:
+                            yield f"data: {json.dumps({'type': 'session_saved', 'session_id': saved_id}, ensure_ascii=False)}\n\n"
+
                 except Exception:
                     logger.exception("Erreur création interaction après stream")
+
+                yield "data: [DONE]\n\n"
 
             except Exception:
                 logger.exception("Erreur stream pipeline RAG")
@@ -686,6 +823,29 @@ class SessionListView(APIView):
             return Response({"status": "session fermée"})
         except ConversationSession.DoesNotExist:
             return Response({"error": "Session introuvable"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class SessionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id):
+        patient = _get_patient(request)
+        if not patient:
+            return Response({"error": "Profil patient introuvable"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            s = ConversationSession.objects.get(id=session_id, patient=patient)
+        except ConversationSession.DoesNotExist:
+            return Response({"error": "Session introuvable"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "id":            s.id,
+            "title":         s.title or "Nouvelle conversation",
+            "lang":          s.lang,
+            "message_count": s.message_count,
+            "last_message":  s.last_message,
+            "history":       s.get_gemini_history(),
+            "created_at":    s.created_at.isoformat(),
+            "updated_at":    s.updated_at.isoformat(),
+        })
 
 
 # ══════════════════════════════════════════════════════════════

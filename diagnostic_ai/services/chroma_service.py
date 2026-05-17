@@ -12,6 +12,116 @@ THRESHOLD_COMMON = 0.40
 THRESHOLD_RARE   = 0.50
 RARE_PRIORITY_MARGIN = 0.03
 
+# Corrections des mauvaises traductions automatiques dans ChromaDB.
+# Clé = name_en.lower() exact, valeur = name_fr corrigé.
+FR_NAME_CORRECTIONS: dict[str, str] = {
+    # Dentaire — "decay" traduit en terme financier
+    "tooth decay":                      "Carie dentaire",
+    "tooth decalcification":            "Décalcification dentaire",
+    "tooth disorders":                  "Troubles dentaires",
+    "tooth disorder":                   "Affection dentaire",
+    "dental caries":                    "Caries dentaires",
+    "dental abscess":                   "Abcès dentaire",
+    "dental health":                    "Santé dentaire",
+    "gum disease":                      "Maladie des gencives",
+    "gingivitis":                       "Gingivite",
+    "periodontitis":                    "Parodontite",
+    "pulpitis":                         "Pulpite",
+    "mouth disorders":                  "Troubles buccaux",
+    "jaw injuries and disorders":       "Troubles de la mâchoire",
+    "trichodental syndrome":            "Syndrome trichodentaire",
+    # ORL
+    "otitis media":                     "Otite moyenne",
+    "otitis":                           "Otite",
+    "sinusitis":                        "Sinusite",
+    "pharyngitis":                      "Pharyngite",
+    "tonsillitis":                      "Amygdalite",
+    "rhinitis":                         "Rhinite",
+    "allergic rhinitis":                "Rhinite allergique",
+    "conjunctivitis":                   "Conjonctivite",
+    # Respiratoire
+    "influenza":                        "Grippe",
+    "pneumonia":                        "Pneumonie",
+    "bronchitis":                       "Bronchite",
+    "asthma":                           "Asthme",
+    "tuberculosis":                     "Tuberculose",
+    "tuberculosis (tb)":                "Tuberculose",
+    # Cardiaque
+    "heart attack":                     "Infarctus du myocarde",
+    "myocardial infarction":            "Infarctus du myocarde",
+    "hypertension":                     "Hypertension artérielle",
+    "tachycardia":                      "Tachycardie",
+    # Neurologique
+    "migraine":                         "Migraine",
+    "meningitis":                       "Méningite",
+    "stroke":                           "Accident vasculaire cérébral",
+    "epilepsy":                         "Épilepsie",
+    "parkinson":                        "Maladie de Parkinson",
+    # Digestif
+    "gastroenteritis":                  "Gastro-entérite",
+    "gastritis":                        "Gastrite",
+    "appendicitis":                     "Appendicite",
+    "pancreatitis":                     "Pancréatite",
+    "irritable bowel syndrome":         "Syndrome du côlon irritable",
+    "gastroesophageal reflux disease":  "Reflux gastro-œsophagien",
+    # Métabolique
+    "diabetes":                         "Diabète",
+    "diabetes mellitus":                "Diabète sucré",
+    "diabetes type 2":                  "Diabète de type 2",
+    "hypothyroidism":                   "Hypothyroïdie",
+    "hyperthyroidism":                  "Hyperthyroïdie",
+    "anemia":                           "Anémie",
+    # Urinaire
+    "urinary tract infection":          "Infection urinaire",
+    "cystitis":                         "Cystite",
+    "kidney stones":                    "Calculs rénaux",
+    # Peau
+    "eczema":                           "Eczéma",
+    "psoriasis":                        "Psoriasis",
+    "dermatitis":                       "Dermatite",
+    # Psy
+    "anxiety":                          "Anxiété",
+    "depression":                       "Dépression",
+    "insomnia":                         "Insomnie",
+    # Traumatologie musculo-squelettique
+    "sprains and strains":              "Entorses et foulures",
+    "sprain":                           "Entorse",
+    "ankle sprain":                     "Entorse de la cheville",
+    "ankle sprains":                    "Entorses de la cheville",
+    "ligament sprain":                  "Entorse ligamentaire",
+    "muscle strain":                    "Foulure musculaire",
+    "strains":                          "Foulures",
+    "fracture":                         "Fracture",
+    "bone fracture":                    "Fracture osseuse",
+    "stress fracture":                  "Fracture de stress",
+    "contusion":                        "Contusion",
+    "bruise":                           "Ecchymose",
+    "dislocation":                      "Luxation",
+    "ligament injury":                  "Lésion ligamentaire",
+    "musculoskeletal injury":           "Traumatisme musculo-squelettique",
+}
+
+
+def _fix_french_name(disease: dict) -> dict:
+    """Remplace les mauvaises traductions name_fr par des termes médicaux corrects."""
+    name_en_lower = disease.get("name_en", "").lower().strip()
+    correction = FR_NAME_CORRECTIONS.get(name_en_lower)
+    if correction:
+        disease = dict(disease)
+        disease["name_fr"] = correction
+    elif not disease.get("name_fr") or _looks_like_bad_translation(disease.get("name_fr", "")):
+        disease = dict(disease)
+        disease["name_fr"] = disease.get("name_en", "")
+    return disease
+
+
+_FINANCIAL_WORDS = {"décaissement", "caisse", "trésorerie", "fonds", "versement",
+                    "encaissement", "déboursement", "solde", "budget", "facture"}
+
+def _looks_like_bad_translation(name_fr: str) -> bool:
+    words = set(name_fr.lower().split())
+    return bool(words & _FINANCIAL_WORDS)
+
 # ══════════════════════════════════════════════════════════
 # MOTS CLÉS D'URGENCE
 # ══════════════════════════════════════════════════════════
@@ -349,6 +459,7 @@ def search_diseases(
             results_rare = []
 
         merged = _smart_merge(results_common, results_rare, max_results=k)
+        merged = [_fix_french_name(d) for d in merged]
 
         logger.info(
             "Search '%s' urgent=%s → common:%d rare:%d merged:%d",

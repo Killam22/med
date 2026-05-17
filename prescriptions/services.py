@@ -34,13 +34,13 @@ class QRCodeService:
             qr_token = QRToken.objects.get(token=token_str)
             if not qr_token.is_valid():
                 return {'valid': False, 'error': 'Token expiré ou déjà utilisé.'}
-            
-            # Marquer comme utilisé
-            qr_token.is_used = True
+            # Vérification signature numérique HMAC-SHA256
+            if qr_token.digital_signature and not qr_token.verify_signature():
+                return {'valid': False, 'error': 'Signature invalide — ordonnance potentiellement falsifiée.'}
+            qr_token.is_used    = True
             qr_token.scanned_by = user
             qr_token.scanned_at = timezone.now()
             qr_token.save()
-            
             return {'valid': True, 'prescription': qr_token.prescription}
         except QRToken.DoesNotExist:
             return {'valid': False, 'error': 'Token invalide.'}
