@@ -7,6 +7,16 @@ class CaretakerServiceSerializer(serializers.ModelSerializer):
         model = CaretakerService
         fields = '__all__'
 
+
+class CaretakerOwnProfileSerializer(serializers.ModelSerializer):
+    """Sérialiseur pour la gestion du profil par le garde-malade lui-même."""
+    class Meta:
+        model = Caretaker
+        fields = ['id', 'certification', 'experience_years', 'bio',
+                  'availability_area', 'is_available', 'tarif_de_base']
+        read_only_fields = ['id']
+
+
 class CaretakerProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True)
@@ -54,6 +64,15 @@ class CareRequestSerializer(serializers.ModelSerializer):
             'patient_message': {'required': False, 'allow_blank': True},
         }
 
+    def validate(self, data):
+        start = data.get('start_date')
+        end = data.get('end_date')
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "La date de fin doit être postérieure à la date de début."}
+            )
+        return data
+
     def get_patient_age(self, obj):
         from datetime import date
         dob = obj.patient.date_of_birth
@@ -73,7 +92,6 @@ class CareRequestSerializer(serializers.ModelSerializer):
             return []
 
     def validate_caretaker(self, value):
-        """Empêcher l'envoi de requêtes à des gardes-malades inactifs ou non vérifiés."""
         if not value.is_verified:
             raise serializers.ValidationError("Ce garde-malade n'est pas vérifié par la plateforme.")
         if not value.is_available:

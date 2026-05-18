@@ -7,24 +7,51 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
-from .serializers import CaretakerProfileSerializer, CareRequestSerializer, CareMessageSerializer, CaretakerCertificateSerializer, CaretakerTaskSerializer, MedicationScheduleSerializer
+from .serializers import (
+    CaretakerProfileSerializer, CaretakerOwnProfileSerializer,
+    CareRequestSerializer, CareMessageSerializer,
+    CaretakerCertificateSerializer, CaretakerTaskSerializer, MedicationScheduleSerializer,
+)
 
 class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
     """API pour les patients : Rechercher et filtrer les gardes-malades"""
     queryset = Caretaker.objects.filter(is_verified=True, is_available=True)
     serializer_class = CaretakerProfileSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    
-    # Filtres exacts
     filterset_fields = ['availability_area', 'experience_years']
-    # Recherche textuelle (ex: chercher une spécialité dans la bio)
     search_fields = ['bio', 'certification', 'user__first_name', 'user__last_name']
+
+
+class CaretakerProfileView(APIView):
+    """GET/PATCH profil du garde-malade connecté."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if getattr(request.user, 'role', None) != 'caretaker':
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            profile = request.user.caretaker_profile
+        except Exception:
+            return Response({"error": "Profil introuvable"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(CaretakerOwnProfileSerializer(profile).data)
+
+    def patch(self, request):
+        if getattr(request.user, 'role', None) != 'caretaker':
+            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            profile = request.user.caretaker_profile
+        except Exception:
+            return Response({"error": "Profil introuvable"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CaretakerOwnProfileSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
 class AddCertificateView(generics.CreateAPIView):
     queryset = CaretakerCertificate.objects.all()
     serializer_class = CaretakerCertificateSerializer
-    # C'est cette ligne qui permet à Django de lire les fichiers Form-Data
-    parser_classes = (MultiPartParser, FormParser)    
+    parser_classes = (MultiPartParser, FormParser)
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -36,7 +63,6 @@ class CareRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Un patient voit ses demandes envoyées, un garde-malade voit celles reçues
         if user.role == 'patient':
             return CareRequest.objects.filter(patient=user)
         elif user.role == 'caretaker':
@@ -44,7 +70,6 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         return CareRequest.objects.none()
 
     def perform_create(self, serializer):
-        # Le patient qui fait la requête est automatiquement défini comme le demandeur
         care_request = serializer.save(patient=self.request.user)
         from notifications.models import Notification
         Notification.objects.create(
@@ -58,8 +83,7 @@ class CareRequestViewSet(viewsets.ModelViewSet):
     def respond_to_offer(self, request, pk=None):
         """Action exclusive au garde-malade : Accepter ou Refuser"""
         care_request = self.get_object()
-        
-        # Vérification de sécurité
+
         if request.user != care_request.caretaker.user:
             return Response({"error": "Non autorisé"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -80,14 +104,15 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         )
 
         msg = "Félicitations, vous avez accès au dossier médical de ce patient." if new_status == 'accepted' else "Demande refusée."
-        return Response({"status": f"Demande {new_status}", "details": msg})
+        serializer = CareRequestSerializer(care_request, context={'request': request})
+        return Response({"status": f"Demande {new_status}", "details": msg, "care_request": serializer.data})
 
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
         """Envoyer un message de chat dans le cadre d'une demande"""
         care_request = self.get_object()
         content = request.data.get('content')
-        
+
         message = CareMessage.objects.create(
             request=care_request,
             sender=request.user,
@@ -163,17 +188,26 @@ class MedicationScheduleViewSet(viewsets.ModelViewSet):
     POST   /api/caretaker/medication-schedules/       → créer
     PATCH  /api/caretaker/medication-schedules/{id}/  → modifier les médicaments
     DELETE /api/caretaker/medication-schedules/{id}/  → supprimer
+
+    Le patient peut aussi lire son propre plan (GET uniquement).
     """
     serializer_class   = MedicationScheduleSerializer
     permission_classes = [IsAuthenticated]
     http_method_names  = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        if self.request.user.role != 'caretaker':
-            return MedicationSchedule.objects.none()
-        return MedicationSchedule.objects.filter(
-            care_request__caretaker__user=self.request.user
-        ).select_related('care_request__patient')
+        user = self.request.user
+        if user.role == 'caretaker':
+            return MedicationSchedule.objects.filter(
+                care_request__caretaker__user=user
+            ).select_related('care_request__patient')
+        if user.role == 'patient':
+            # Le patient ne voit que son propre plan, uniquement si la demande est acceptée
+            return MedicationSchedule.objects.filter(
+                care_request__patient=user,
+                care_request__status='accepted',
+            ).select_related('care_request__patient')
+        return MedicationSchedule.objects.none()
 
     def perform_create(self, serializer):
         if self.request.user.role != 'caretaker':
@@ -188,7 +222,6 @@ class MedicationScheduleViewSet(viewsets.ModelViewSet):
             raise ValidationError("La demande doit être acceptée avant de créer un plan.")
         medications = self.request.data.get('medications', {'morning': [], 'afternoon': [], 'evening': []})
         serializer.save(medications=medications)
-
 
 class CaretakerDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]

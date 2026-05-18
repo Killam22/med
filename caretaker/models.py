@@ -41,9 +41,9 @@ class CareRequest(models.Model):
     
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     
-    start_date = models.DateField()
+    start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
-    patient_message = models.TextField(help_text="Détails des tâches et besoins médicaux")
+    patient_message = models.TextField(blank=True, help_text="Détails des tâches et besoins médicaux")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
