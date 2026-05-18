@@ -285,6 +285,28 @@ except Exception as e:
     print(f"❌ Erreur garde-malade Fatima Hadj : {e}")
 
 
+# ─── ADMIN ───────────────────────────────────────────────────────────────────
+try:
+    if User.objects.filter(email='admin@demo.com').exists():
+        print("⏭️  Existe déjà : admin@demo.com")
+    else:
+        admin_user = User.objects.create_superuser(
+            username='admin@demo.com',
+            email='admin@demo.com',
+            password=PASSWORD,
+            first_name='Admin',
+            last_name='MedSmart',
+            role='admin',
+            sex='male',
+            phone='0000000000',
+            id_card_number='DEMO-ADMIN-2025-000',
+            is_active=True,
+        )
+        print("✅ Créé : admin@demo.com (admin)")
+except Exception as e:
+    print(f"❌ Erreur admin : {e}")
+
+
 # ─── RENDEZ-VOUS ─────────────────────────────────────────────────────────────
 print("\n--- Création des rendez-vous ---")
 
@@ -524,6 +546,7 @@ print("RAPPORT FINAL")
 print("=" * 60)
 
 demo_emails = [
+    'admin@demo.com',
     'sarah.benali@demo.com',
     'karim.meziane@demo.com',
     'dr.yacine.bensaid@demo.com',
@@ -532,6 +555,7 @@ demo_emails = [
     'fatima.hadj@demo.com',
 ]
 labels = [
+    'Admin MedSmart',
     'Patient 1 Sarah Benali',
     'Patient 2 Karim Meziane',
     'Médecin 1 Dr. Bensaid',
