@@ -4,6 +4,7 @@ from .views import (
     CaretakerViewSet, CareRequestViewSet, AddCertificateView,
     CaretakerDashboardView, CaretakerProfileView,
     CaretakerTaskViewSet, MedicationScheduleViewSet,
+    CaretakerReviewViewSet,
 )
 
 router = DefaultRouter()
@@ -11,6 +12,7 @@ router.register(r'search',               CaretakerViewSet,          basename='ca
 router.register(r'requests',             CareRequestViewSet,        basename='care-request')
 router.register(r'tasks',                CaretakerTaskViewSet,      basename='caretaker-task')
 router.register(r'medication-schedules', MedicationScheduleViewSet, basename='medication-schedule')
+router.register(r'reviews',              CaretakerReviewViewSet,    basename='caretaker-review')
 
 urlpatterns = [
     path('', include(router.urls)),

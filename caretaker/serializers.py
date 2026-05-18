@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
+from .models import Caretaker, CaretakerService, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule, CaretakerReview
 from consultations.serializers import ConsultationPatientSerializer as ConsultationSerializer
 
 class CaretakerServiceSerializer(serializers.ModelSerializer):
@@ -8,13 +8,23 @@ class CaretakerServiceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class CaretakerReviewSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+
+    class Meta:
+        model = CaretakerReview
+        fields = ['id', 'care_request', 'patient_name', 'rating', 'comment', 'created_at']
+        read_only_fields = ['id', 'patient_name', 'created_at']
+
+
 class CaretakerOwnProfileSerializer(serializers.ModelSerializer):
     """Sérialiseur pour la gestion du profil par le garde-malade lui-même."""
     class Meta:
         model = Caretaker
         fields = ['id', 'certification', 'experience_years', 'bio',
-                  'availability_area', 'is_available', 'tarif_de_base']
-        read_only_fields = ['id']
+                  'availability_area', 'is_available', 'tarif_de_base',
+                  'rating', 'total_reviews']
+        read_only_fields = ['id', 'rating', 'total_reviews']
 
 
 class CaretakerProfileSerializer(serializers.ModelSerializer):

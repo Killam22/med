@@ -6,11 +6,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule
+from .models import Caretaker, CareRequest, CareMessage, CaretakerCertificate, CaretakerTask, MedicationSchedule, CaretakerReview
 from .serializers import (
     CaretakerProfileSerializer, CaretakerOwnProfileSerializer,
     CareRequestSerializer, CareMessageSerializer,
     CaretakerCertificateSerializer, CaretakerTaskSerializer, MedicationScheduleSerializer,
+    CaretakerReviewSerializer,
 )
 
 class CaretakerViewSet(viewsets.ReadOnlyModelViewSet):
@@ -222,6 +223,40 @@ class MedicationScheduleViewSet(viewsets.ModelViewSet):
             raise ValidationError("La demande doit être acceptée avant de créer un plan.")
         medications = self.request.data.get('medications', {'morning': [], 'afternoon': [], 'evening': []})
         serializer.save(medications=medications)
+
+class CaretakerReviewViewSet(viewsets.ModelViewSet):
+    """
+    Patient  → POST /api/caretaker/reviews/      créer un avis (demande terminée)
+    Caretaker → GET /api/caretaker/reviews/      voir ses propres avis
+    """
+    serializer_class = CaretakerReviewSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, 'role', None) == 'caretaker':
+            return CaretakerReview.objects.filter(caretaker__user=user).select_related('patient')
+        if getattr(user, 'role', None) == 'patient':
+            return CaretakerReview.objects.filter(patient=user).select_related('patient')
+        return CaretakerReview.objects.none()
+
+    def perform_create(self, serializer):
+        if getattr(self.request.user, 'role', None) != 'patient':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Seul un patient peut laisser un avis.")
+        care_request = serializer.validated_data['care_request']
+        if care_request.patient != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Cette demande ne vous appartient pas.")
+        if care_request.status != CareRequest.Status.COMPLETED:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("L'avis ne peut être soumis que pour une demande terminée.")
+        serializer.save(
+            patient=self.request.user,
+            caretaker=care_request.caretaker,
+        )
+
 
 class CaretakerDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]

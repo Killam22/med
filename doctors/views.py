@@ -49,6 +49,23 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user.doctor_profile
 
+class MyReviewsView(generics.ListAPIView):
+    """GET /api/doctors/my-reviews/ — reviews received by the logged-in doctor."""
+    permission_classes = [IsDoctor]
+
+    def get(self, request, *args, **kwargs):
+        from appointments.models import Review
+        from appointments.serializers import ReviewSerializer
+        doctor = request.user.doctor_profile
+        reviews = Review.objects.filter(doctor=doctor).order_by('-created_at')
+        data = ReviewSerializer(reviews, many=True).data
+        return Response({
+            "rating": float(doctor.rating) if doctor.rating else 0,
+            "total_reviews": reviews.count(),
+            "reviews": data,
+        })
+
+
 class AddQualificationView(generics.CreateAPIView):
     queryset = DoctorQualification.objects.all()
     serializer_class = DocQualificationSerializer

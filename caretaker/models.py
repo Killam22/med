@@ -12,7 +12,9 @@ class Caretaker(models.Model):
     is_verified = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True, help_text="Visible dans les recherches des patients")
     criminal_record_scan = models.FileField(upload_to='caretaker_records/', validators=[validate_file_type], null=True, blank=False) 
-    tarif_de_base = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tarif_de_base  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    rating         = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    total_reviews  = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"GM. {self.user.last_name} (Garde-Malade)"
@@ -63,6 +65,32 @@ class CareMessage(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+class CaretakerReview(models.Model):
+    """Avis laissé par un patient sur son garde-malade."""
+    care_request = models.OneToOneField(CareRequest, on_delete=models.CASCADE, related_name='review')
+    patient      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='caretaker_reviews_given')
+    caretaker    = models.ForeignKey(Caretaker, on_delete=models.CASCADE, related_name='reviews')
+    rating       = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])
+    comment      = models.TextField(blank=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Avis {self.rating}★ — {self.patient.get_full_name()} → {self.caretaker.user.get_full_name()}"
+
+    def save(self, *args, **kwargs):
+        from django.db.models import Avg
+        super().save(*args, **kwargs)
+        reviews = CaretakerReview.objects.filter(caretaker=self.caretaker)
+        avg = reviews.aggregate(Avg('rating'))['rating__avg'] or 0
+        Caretaker.objects.filter(pk=self.caretaker_id).update(
+            rating=round(avg, 2),
+            total_reviews=reviews.count(),
+        )
+
 
 class CaretakerTask(models.Model):
     """Tâche créée par le garde-malade pour un patient assigné."""

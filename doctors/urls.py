@@ -8,6 +8,7 @@ from .views import (
     DayOffViewSet,
     AddQualificationView,
     DoctorDashboardView,
+    MyReviewsView,
 )
 
 # Router pour les ViewSets du planning
@@ -28,4 +29,5 @@ urlpatterns = [
     path('profile/',     DoctorProfileView.as_view(),  name='doctor_profile'),
     path('qualifications/add/', AddQualificationView.as_view(), name='add-qualification'),
     path('dashboard/',   DoctorDashboardView.as_view(), name='doctor-dashboard'),
+    path('my-reviews/',  MyReviewsView.as_view(),       name='doctor-my-reviews'),
 ]
