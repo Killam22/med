@@ -1,4 +1,4 @@
-"""
+﻿"""
 Django settings for appointment_backend project.
 """
 
@@ -142,8 +142,8 @@ REST_FRAMEWORK = {
 
 # ── Spectacular (OpenAPI) ─────────────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
-    'TITLE':                'MedSmart API',
-    'DESCRIPTION':          'Documentation complète de l\'API MedSmart (PFE).',
+    'TITLE':                'Healy API',
+    'DESCRIPTION':          'Documentation complète de l\'API Healy (PFE).',
     'VERSION':              '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_PATCH':    True,

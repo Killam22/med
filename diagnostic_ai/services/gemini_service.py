@@ -1,4 +1,4 @@
-# diagnostic_ai/services/gemini_service.py
+﻿# diagnostic_ai/services/gemini_service.py
 
 import time
 import logging
@@ -56,7 +56,7 @@ Constraints:
 }
 
 CONVERSATIONAL_SYSTEM_PROMPT = """
-Tu es MedSmart, un assistant médical IA professionnel et bienveillant.
+Tu es Healy, un assistant médical IA professionnel et bienveillant.
 
 Tu as les capacités suivantes :
 1. DIAGNOSTIC — Analyser les symptômes et proposer des maladies possibles
@@ -294,7 +294,7 @@ def build_file_analysis_prompt(message, lang, file_type, history):
 
     history_text = ""
     for msg in history[-6:]:
-        role = "Patient" if msg["role"] == "user" else "MedSmart"
+        role = "Patient" if msg["role"] == "user" else "Healy"
         history_text += f"{role}: {msg['content'][:200]}\n"
     if not history_text:
         history_text = "Début de conversation."
@@ -357,7 +357,7 @@ def build_conversational_prompt(message, lang, history, intent):
 
     history_text = ""
     for msg in history[-8:]:
-        role = "Patient" if msg["role"] == "user" else "MedSmart"
+        role = "Patient" if msg["role"] == "user" else "Healy"
         history_text += f"{role}: {msg['content'][:300]}\n"
     if not history_text:
         history_text = "Début de conversation."

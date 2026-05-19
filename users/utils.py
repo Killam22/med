@@ -1,9 +1,9 @@
-# users/utils.py
+﻿# users/utils.py
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 
-_FROM_EMAIL = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@medsmart.dz')
+_FROM_EMAIL = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@Healy.dz')
 _APP_URL = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
 
 
@@ -21,19 +21,19 @@ def send_otp_email(email, otp, purpose, first_name='', last_name=''):
     }
 
     if purpose == 'register':
-        subject = "MedSmart — Vérification de votre compte"
+        subject = "Healy — Vérification de votre compte"
         text_body = (
             f"Bonjour {first_name} {last_name},\n\n"
-            f"Votre code de vérification MedSmart est : {otp}\n\n"
+            f"Votre code de vérification Healy est : {otp}\n\n"
             f"Ce code expire dans 10 minutes.\n"
             f"Si vous n'avez pas créé de compte, ignorez cet e-mail."
         )
         html_body = render_to_string('users/emails/otp_verify.html', context)
     else:
-        subject = "MedSmart — Réinitialisation du mot de passe"
+        subject = "Healy — Réinitialisation du mot de passe"
         text_body = (
             f"Bonjour {first_name} {last_name},\n\n"
-            f"Votre code de réinitialisation MedSmart est : {otp}\n\n"
+            f"Votre code de réinitialisation Healy est : {otp}\n\n"
             f"Ce code expire dans 15 minutes.\n"
             f"Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail."
         )
@@ -58,12 +58,12 @@ def send_welcome_email(user):
         'patient_id': getattr(user, 'id', ''),
         'app_url': _APP_URL,
     }
-    subject = "Bienvenue sur MedSmart ! 🎉"
+    subject = "Bienvenue sur Healy ! 🎉"
     text_body = (
         f"Bonjour {user.first_name} {user.last_name},\n\n"
-        f"Votre compte MedSmart a été activé avec succès.\n"
+        f"Votre compte Healy a été activé avec succès.\n"
         f"Accédez à votre espace santé sur {_APP_URL}\n\n"
-        f"L'équipe MedSmart"
+        f"L'équipe Healy"
     )
     html_body = render_to_string('users/emails/welcome.html', context)
 

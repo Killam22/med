@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Comptes de demonstration avec donnees realistes pour captures d'ecran academiques.
 Lancer : cd back && python scripts/create_demo_accounts.py
@@ -295,7 +295,7 @@ try:
             email='admin@demo.com',
             password=PASSWORD,
             first_name='Admin',
-            last_name='MedSmart',
+            last_name='Healy',
             role='admin',
             sex='male',
             phone='0000000000',
@@ -555,7 +555,7 @@ demo_emails = [
     'fatima.hadj@demo.com',
 ]
 labels = [
-    'Admin MedSmart',
+    'Admin Healy',
     'Patient 1 Sarah Benali',
     'Patient 2 Karim Meziane',
     'Médecin 1 Dr. Bensaid',

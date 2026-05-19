@@ -1,7 +1,7 @@
-"""
+﻿"""
 users/views.py
 ==============
-Architecture MedSmart — 4 piliers :
+Architecture Healy — 4 piliers :
   1. JWT + LoginRateThrottle (brute-force protection)
   2. Inscription avec OTP email (is_active=False → True)
   3. Profil "Caméléon" — /me/ dispatch par rôle
@@ -60,7 +60,7 @@ class LogoutView(APIView):
 User = get_user_model()
 
 # Sel cryptographique pour les tokens de reset (ne pas changer en prod sans invalider tous les tokens actifs)
-_RESET_SALT = 'medsmart-password-reset-v1'
+_RESET_SALT = 'Healy-password-reset-v1'
 _RESET_MAX_AGE = 600  # 10 minutes en secondes
 
 
@@ -221,7 +221,7 @@ class VerifyRegisterOTPView(APIView):
         # Génère les tokens JWT directement
         refresh = RefreshToken.for_user(user)
         return Response({
-            'message': 'Compte activé avec succès. Bienvenue sur MedSmart !',
+            'message': 'Compte activé avec succès. Bienvenue sur Healy !',
             'access': str(refresh.access_token),
             'refresh': str(refresh),
             'role': user.role,

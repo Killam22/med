@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, filters, permissions, generics
+﻿from rest_framework import viewsets, status, filters, permissions, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission
@@ -68,7 +68,7 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
         Notification.objects.create(
             user=user,
             title="Compte approuvé !",
-            message="Votre dossier a été validé par l'administration. Vous pouvez maintenant vous connecter sur MedSmart.",
+            message="Votre dossier a été validé par l'administration. Vous pouvez maintenant vous connecter sur Healy.",
             notification_type=Notification.NotificationType.SYSTEM
         )
 

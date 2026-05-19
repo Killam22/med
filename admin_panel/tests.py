@@ -1,4 +1,4 @@
-from rest_framework.test import APITestCase
+﻿from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -14,7 +14,7 @@ class AdminPanelTests(APITestCase):
     def setUp(self):
         # Création d'un admin
         self.admin_user = User.objects.create_superuser(
-            email='admin@medsmart.com',
+            email='admin@Healy.com',
             password='password123',
             role='admin',
             first_name='Admin',

@@ -1,8 +1,8 @@
-openapi: 3.0.3
+﻿openapi: 3.0.3
 info:
-  title: MedSmart API
+  title: Healy API
   version: 1.0.0
-  description: Documentation complète de l'API pour la plateforme médicale MedSmart
+  description: Documentation complète de l'API pour la plateforme médicale Healy
     (PFE).
 paths:
   /api/admin/audit-logs/:

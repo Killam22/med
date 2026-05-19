@@ -1,7 +1,7 @@
-"""
+﻿"""
 users/tests.py
 ==============
-Suite de tests complète pour l'application Users de MedSmart.
+Suite de tests complète pour l'application Users de Healy.
 Couvre les 4 piliers architecturaux :
   1. Sécurité (Throttle JWT)
   2. Inscription + Vérification OTP
@@ -95,7 +95,7 @@ class PatientRegistrationFlowTest(APITestCase):
         self.verify_url   = reverse('verify_register_otp')
 
         self.valid_payload = {
-            "email": "nouveau.patient@medsmart.dz",
+            "email": "nouveau.patient@Healy.dz",
             "first_name": "Amira",
             "last_name": "Boudiaf",
             "password": "Str0ngPass!2024",
@@ -352,7 +352,7 @@ class PasswordResetFlowTest(APITestCase):
 
     def setUp(self):
         self.user = make_active_patient(
-            email="oubli@medsmart.dz",
+            email="oubli@Healy.dz",
             password="AncienMotDePasse!1",
         )
         self.request_url = reverse('password_reset_request')
@@ -535,7 +535,7 @@ class CustomTokenPayloadTest(APITestCase):
 
     def setUp(self):
         self.login_url = reverse('token_obtain_pair')
-        self.user = make_active_patient(email="token_test@medsmart.dz")
+        self.user = make_active_patient(email="token_test@Healy.dz")
 
     def test_login_response_contains_role_and_full_name(self):
         """
@@ -545,7 +545,7 @@ class CustomTokenPayloadTest(APITestCase):
                Ici username == email (défini dans make_active_patient).
         """
         response = self.client.post(self.login_url, {
-            "email": "token_test@medsmart.dz",
+            "email": "token_test@Healy.dz",
             "password": "Str0ngPass!",
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK,
