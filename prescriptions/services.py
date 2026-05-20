@@ -1,5 +1,6 @@
 import io
 import base64
+from django.conf import settings
 from django.utils import timezone
 from .models import QRToken, CNASCoverage
 from reportlab.lib.pagesizes import A4
@@ -19,8 +20,10 @@ class QRCodeService:
         if not qrcode:
             return "QR Code Library not installed"
             
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        scan_url = f"{frontend_url}/scan?token={token_str}"
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(token_str)
+        qr.add_data(scan_url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         

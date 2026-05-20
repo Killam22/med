@@ -84,6 +84,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     Visible par le patient — pas de refusal_reason.
     """
     doctor_id        = serializers.IntegerField(source='doctor.id', read_only=True)
+    doctor_user_id   = serializers.IntegerField(source='doctor.user.id', read_only=True)
     doctor_name      = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
     doctor_specialty = serializers.CharField(source='doctor.specialty', read_only=True)
     patient_name     = serializers.CharField(source='patient.user.get_full_name', read_only=True)
@@ -96,6 +97,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'doctor_id',
+            'doctor_user_id',
             'doctor_name',
             'doctor_specialty',
             'patient_name',
@@ -125,6 +127,7 @@ class AppointmentDoctorSerializer(serializers.ModelSerializer):
     Ajoute refusal_reason et les infos patient complètes.
     """
     patient_id      = serializers.IntegerField(source='patient.id', read_only=True)
+    patient_user_id = serializers.IntegerField(source='patient.user.id', read_only=True)
     patient_name    = serializers.CharField(source='patient.user.get_full_name', read_only=True)
     patient_email   = serializers.EmailField(source='patient.user.email', read_only=True)
     patient_phone   = serializers.CharField(source='patient.user.phone', read_only=True)
@@ -136,6 +139,7 @@ class AppointmentDoctorSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'patient_id',
+            'patient_user_id',
             'patient_name',
             'patient_email',
             'patient_phone',

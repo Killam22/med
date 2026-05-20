@@ -7,6 +7,8 @@ User = get_user_model()
 class AdminUserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     submitted_documents = serializers.SerializerMethodField()
+    patient_detail = serializers.SerializerMethodField()
+    specialty = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -15,6 +17,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'is_active', 'verification_status', 'date_joined',
             'submitted_documents', 'phone', 'wilaya',
             'address', 'city', 'postal_code', 'sex', 'date_of_birth', 'id_card_number',
+            'patient_detail', 'specialty',
         ]
 
     def get_submitted_documents(self, obj):
@@ -90,8 +93,64 @@ class AdminUserSerializer(serializers.ModelSerializer):
         except Exception as e:
             # Sécurité pour éviter un crash d'API si un profil est mal configuré
             print(f"Avertissement lors de la récupération des docs pour {obj.email}: {str(e)}")
-            
+
         return docs
+
+    def get_patient_detail(self, obj):
+        """Retourne le profil médical si l'utilisateur est un patient."""
+        if obj.role != 'patient':
+            return None
+        try:
+            mp = obj.patient_profile.medical_profile
+            return {
+                'medical_profile': {
+                    'blood_group': mp.blood_group or '',
+                    'height': mp.height,
+                    'weight': mp.weight,
+                }
+            }
+        except Exception:
+            return {'medical_profile': {'blood_group': '', 'height': None, 'weight': None}}
+
+    def get_specialty(self, obj):
+        if obj.role == 'doctor':
+            try:
+                return obj.doctor_profile.specialty or ''
+            except Exception:
+                pass
+        return ''
+
+    def update(self, instance, validated_data):
+        # Champs médicaux transmis hors validated_data (non déclarés dans Meta.fields)
+        request_data = self.context.get('request').data if self.context.get('request') else {}
+        blood_group = request_data.get('blood_group') or request_data.get('blood_type')
+        height = request_data.get('height')
+        weight = request_data.get('weight')
+
+        instance = super().update(instance, validated_data)
+
+        if instance.role == 'patient' and any([blood_group, height, weight]):
+            try:
+                patient = instance.patient_profile
+                mp, _ = patient.medical_profile.__class__.objects.get_or_create(patient=patient)
+                if blood_group is not None:
+                    mp.blood_group = blood_group
+                if height is not None:
+                    try:
+                        mp.height = float(height)
+                    except (ValueError, TypeError):
+                        pass
+                if weight is not None:
+                    try:
+                        mp.weight = float(weight)
+                    except (ValueError, TypeError):
+                        pass
+                mp.save()
+            except Exception:
+                pass
+
+        return instance
+
 
 class AuditLogSerializer(serializers.ModelSerializer):
     actor_name = serializers.CharField(source='actor.get_full_name', read_only=True, default='Système')

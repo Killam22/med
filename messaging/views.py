@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
-from django.db.models import Max
+from django.db.models import Max, Count
 from django.contrib.auth import get_user_model
 
 from .models import Conversation, Message, BlockedUser, UserReport
@@ -32,6 +32,38 @@ class ConversationViewSet(viewsets.ModelViewSet):
             .order_by('-last_msg_time')
         )
 
+    def create(self, request, *args, **kwargs):
+        interlocutor_id = request.data.get('interlocutor_id')
+        interlocutor = None
+
+        if interlocutor_id:
+            try:
+                interlocutor = User.objects.get(id=interlocutor_id)
+            except User.DoesNotExist:
+                pass
+
+        if interlocutor:
+            if interlocutor.messages_disabled:
+                raise PermissionDenied("MESSAGES_DISABLED")
+
+            # Get-or-create: find existing 1-to-1 conversation between the two users
+            existing = (
+                Conversation.objects
+                .filter(participants=request.user)
+                .filter(participants=interlocutor)
+                .annotate(pcount=Count('participants'))
+                .filter(pcount=2)
+                .first()
+            )
+            if existing:
+                ctx = self.get_serializer_context()
+                return Response(
+                    ConversationSerializer(existing, context=ctx).data,
+                    status=status.HTTP_200_OK,
+                )
+
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         conversation = serializer.save()
         conversation.participants.add(self.request.user)
@@ -56,14 +88,23 @@ class ConversationViewSet(viewsets.ModelViewSet):
             msgs = Message.objects.filter(conversation=conversation, is_deleted=False)
             return Response(MessageSerializer(msgs, many=True, context=ctx).data)
 
-        # POST — envoyer un message
+        # POST — envoyer un message (texte et/ou fichier)
+        # Bloquer si l'expéditeur a désactivé ses messages
+        if request.user.messages_disabled:
+            return Response({'detail': 'Vous avez désactivé les messages.'}, status=status.HTTP_403_FORBIDDEN)
+        # Bloquer si un destinataire a désactivé ses messages
+        if conversation.participants.exclude(id=request.user.id).filter(messages_disabled=True).exists():
+            return Response({'detail': 'MESSAGES_DISABLED'}, status=status.HTTP_403_FORBIDDEN)
+
         content = request.data.get('content', '').strip()
-        if not content:
-            return Response({'detail': 'Le contenu est requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES.get('file')
+        if not content and not file:
+            return Response({'detail': 'Un contenu ou un fichier est requis.'}, status=status.HTTP_400_BAD_REQUEST)
         msg = Message.objects.create(
             conversation=conversation,
             sender=request.user,
             content=content,
+            file=file,
         )
         conversation.save()  # met à jour updated_at pour le tri
         return Response(MessageSerializer(msg, context=ctx).data, status=status.HTTP_201_CREATED)
@@ -97,6 +138,10 @@ class MessageViewSet(viewsets.ModelViewSet):
         conversation = serializer.validated_data['conversation']
         if not conversation.participants.filter(id=self.request.user.id).exists():
             raise PermissionDenied("Vous ne participez pas à cette conversation.")
+        if self.request.user.messages_disabled:
+            raise PermissionDenied("Vous avez désactivé les messages.")
+        if conversation.participants.exclude(id=self.request.user.id).filter(messages_disabled=True).exists():
+            raise PermissionDenied("MESSAGES_DISABLED")
         serializer.save(sender=self.request.user)
         conversation.save()
 
@@ -106,12 +151,15 @@ class MessageViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Vous ne pouvez modifier que vos propres messages.")
         serializer.save(edited_at=timezone.now())
 
-    def perform_destroy(self, instance):
-        if instance.sender != self.request.user:
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.sender != request.user:
             raise PermissionDenied("Vous ne pouvez supprimer que vos propres messages.")
         instance.is_deleted = True
-        instance.content = "Message supprimé"
+        instance.content = ""
         instance.save()
+        ctx = {'request': request}
+        return Response(MessageSerializer(instance, context=ctx).data)
 
 
 class BlockUserView(APIView):
@@ -155,14 +203,17 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserReportSerializer
     permission_classes = [IsAuthenticated]
 
+    def _is_admin(self, user):
+        return user.is_staff or getattr(user, 'role', None) == 'admin'
+
     def get_queryset(self):
-        if not self.request.user.is_staff:
+        if not self._is_admin(self.request.user):
             return UserReport.objects.none()
         return UserReport.objects.all().order_by('-created_at')
 
     @action(detail=True, methods=['post'], url_path='action')
     def handle_action(self, request, pk=None):
-        if not request.user.is_staff:
+        if not self._is_admin(request.user):
             return Response({'detail': 'Accès admin requis.'}, status=status.HTTP_403_FORBIDDEN)
         report = self.get_object()
         action_type = request.data.get('action')

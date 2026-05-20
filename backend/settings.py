@@ -12,6 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ── Charger le .env ───────────────────────────────────────────────────────────
 load_dotenv(BASE_DIR / ".env", encoding='utf-8', override=True)
 
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
 SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
 
 DEBUG = True

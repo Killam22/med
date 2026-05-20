@@ -44,8 +44,9 @@ class CareMessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'sender', 'sender_name', 'content', 'created_at']
 
 class CareRequestSerializer(serializers.ModelSerializer):
-    caretaker_name     = serializers.CharField(source='caretaker.user.get_full_name', read_only=True)
-    patient_name       = serializers.CharField(source='patient.get_full_name', read_only=True)
+    caretaker_name    = serializers.CharField(source='caretaker.user.get_full_name', read_only=True)
+    caretaker_user_id = serializers.IntegerField(source='caretaker.user.id', read_only=True)
+    patient_name      = serializers.CharField(source='patient.get_full_name', read_only=True)
     patient_age        = serializers.SerializerMethodField()
     patient_city       = serializers.CharField(source='patient.city', read_only=True)
     patient_phone      = serializers.CharField(source='patient.phone', read_only=True)
@@ -64,7 +65,7 @@ class CareRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'patient_name', 'patient_age', 'patient_sex',
             'patient_city', 'patient_address', 'patient_phone', 'patient_conditions',
-            'location', 'caretaker', 'caretaker_name',
+            'location', 'caretaker', 'caretaker_name', 'caretaker_user_id',
             'status', 'start_date', 'end_date', 'patient_message', 'condition',
             'created_at', 'messages', 'patient_medical_dossier',
         ]

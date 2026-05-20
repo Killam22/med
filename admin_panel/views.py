@@ -35,7 +35,8 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
     """Endpoints pour 'Validation des inscriptions' et 'Gestion Utilisateurs'"""
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdminUserSerializer
-    permission_classes = [IsAdminRole] # Seulement accessible aux superusers
+    permission_classes = [IsAdminRole]
+    pagination_class = None  # filtrage côté client dans l'admin
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['role', 'verification_status', 'is_active']
@@ -150,10 +151,11 @@ class AdminAppointmentListView(generics.ListAPIView):
     def get_queryset(self):
         qs = Appointment.objects.all().select_related(
             'patient__user', 'doctor__user'
-        ).order_by('-date', '-start_time')
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+        ).order_by('date', 'start_time')
+        if status := self.request.query_params.get('status'):
+            qs = qs.filter(status=status)
+        if date := self.request.query_params.get('date'):
+            qs = qs.filter(date=date)
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -162,10 +164,13 @@ class AdminAppointmentListView(generics.ListAPIView):
             {
                 "id": a.id,
                 "patient": a.patient.user.get_full_name() if a.patient and a.patient.user else "—",
+                "patient_id": a.patient.user.id if a.patient and a.patient.user else None,
                 "doctor": a.doctor.user.get_full_name() if a.doctor and a.doctor.user else "—",
-                "specialty": getattr(a.doctor, 'specialty', '—') or '—',
+                "doctor_id": a.doctor.user.id if a.doctor and a.doctor.user else None,
+                "specialty": getattr(a.doctor, 'specialty', '') or '',
                 "date": str(a.date),
                 "start_time": str(a.start_time),
+                "duration_minutes": getattr(a, 'duration_minutes', 30) or 30,
                 "motif": a.motif or '—',
                 "status": a.status,
             }

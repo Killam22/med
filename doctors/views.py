@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.db import models
 from rest_framework import generics, filters, viewsets, status, permissions
 from rest_framework.views import APIView
 from rest_framework.renderers import JSONRenderer
@@ -164,6 +165,16 @@ class DoctorDashboardView(APIView):
         pending_appointments = Appointment.objects.filter(doctor__user=user, status='pending')
 
         doctor_profile = getattr(user, 'doctor_profile', None)
+
+        from appointments.models import Review
+        real_reviews = Review.objects.filter(appointment__doctor__user=user)
+        real_total = real_reviews.count()
+        if real_total > 0:
+            avg = real_reviews.aggregate(avg=models.Avg('rating'))['avg']
+            real_avg = round(float(avg), 1) if avg else None
+        else:
+            real_avg = None
+
         data = {
             "kpis": {
                 "today_consultations": today_appointments.exclude(status='cancelled').count(),
@@ -171,8 +182,8 @@ class DoctorDashboardView(APIView):
                     doctor__user=user
                 ).values('patient').distinct().count(),
                 "pending_requests": pending_appointments.count(),
-                "avg_rating": float(doctor_profile.rating) if doctor_profile and doctor_profile.rating else None,
-                "total_reviews": doctor_profile.total_reviews if doctor_profile else 0,
+                "avg_rating": real_avg,
+                "total_reviews": real_total,
             },
             "todays_schedule": [
                 {

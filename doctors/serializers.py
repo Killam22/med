@@ -59,6 +59,7 @@ class DayOffSerializer(serializers.ModelSerializer):
 
 class DoctorListSerializer(serializers.ModelSerializer):
     """Compact doctor info for search results."""
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     full_name = serializers.CharField(source='user.get_full_name', read_only=True)
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     gender_display = serializers.CharField(source='user.get_sex_display', read_only=True)
@@ -67,15 +68,16 @@ class DoctorListSerializer(serializers.ModelSerializer):
     est_address = serializers.SerializerMethodField()
     pro_phone = serializers.SerializerMethodField()
     available_slots_for_date = serializers.SerializerMethodField()
+    messages_disabled = serializers.BooleanField(source='user.messages_disabled', read_only=True)
 
     class Meta:
         model = Doctor
         fields = [
-            'id', 'full_name', 'specialty', 'specialty_display',
+            'id', 'user_id', 'full_name', 'specialty', 'specialty_display',
             'gender', 'gender_display',
             'clinic_name', 'est_address', 'est_city', 'pro_phone', 'rating', 'total_reviews',
             'experience_years', 'consultation_fee', 'bio', 'languages',
-            'available_slots_for_date',
+            'available_slots_for_date', 'messages_disabled',
         ]
 
     def get_est_city(self, obj):

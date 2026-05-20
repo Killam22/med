@@ -311,9 +311,9 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'full_name', 'first_name', 'last_name', 'role', 'phone', 
+            'id', 'email', 'full_name', 'first_name', 'last_name', 'role', 'phone',
             'sex', 'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
-            'verification_status', 'is_active'
+            'verification_status', 'is_active', 'messages_disabled'
         ]
         read_only_fields = ['full_name', 'role', 'verification_status', 'is_active']
 
@@ -330,7 +330,7 @@ class BaseUserUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'role', 'full_name', 'first_name', 'last_name', 'phone', 'sex',
             'date_of_birth', 'address', 'postal_code', 'city', 'wilaya',
-            'verification_status', 'is_active', 'photo'
+            'verification_status', 'is_active', 'photo', 'messages_disabled'
         ]
         read_only_fields = ['id', 'role', 'full_name', 'verification_status', 'is_active']
 

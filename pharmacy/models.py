@@ -28,6 +28,9 @@ class Pharmacy(models.Model):
     agreement_number = models.CharField(max_length=50, unique=True)
     agreement_scan = models.FileField(upload_to='agreement_scans/', null=True, blank=False, validators=[validate_file_type])
     registre_commerce = models.FileField(upload_to='registre_commerce/', null=True, blank=False, validators=[validate_file_type])
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return f"Pharmacie {self.name} - {self.pharm_city}"
 
@@ -95,5 +98,8 @@ class PharmacyOrder(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Prix total de la commande")
     estimated_ready = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)        
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
 

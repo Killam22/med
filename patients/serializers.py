@@ -2,11 +2,13 @@ from rest_framework import serializers
 from .models import Patient, MedicalProfile, Allergy, Antecedent, Treatment, MedicalDocument, DocumentFile, SymptomAnalysis, PatientLinkRequest, ExternalPatient
 
 class PatientSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     age = serializers.IntegerField(read_only=True)
     photo = serializers.ImageField(source='user.photo', read_only=True)
+    messages_disabled = serializers.BooleanField(source='user.messages_disabled', read_only=True)
 
     date_of_birth = serializers.DateField(source='user.date_of_birth', required=False, allow_null=True)
     phone = serializers.CharField(source='user.phone', required=False, allow_blank=True)
@@ -19,8 +21,8 @@ class PatientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'date_of_birth', 'age',
-            'phone', 'address', 'postal_code', 'city', 'wilaya', 'sex', 'photo'
+            'id', 'user_id', 'email', 'first_name', 'last_name', 'date_of_birth', 'age',
+            'phone', 'address', 'postal_code', 'city', 'wilaya', 'sex', 'photo', 'messages_disabled'
         ]
 
     def update(self, instance, validated_data):

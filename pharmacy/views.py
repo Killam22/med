@@ -99,7 +99,14 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         from django.contrib.auth import get_user_model
         from notifications.models import Notification
-        order = serializer.save(patient=self.request.user)
+        user = self.request.user
+        # Quand un pharmacien crée la commande après scan QR, le patient est celui de l'ordonnance
+        if getattr(user, 'role', None) == 'pharmacist':
+            prescription = serializer.validated_data.get('prescription')
+            patient_user = prescription.patient.user if prescription and hasattr(prescription, 'patient') else user
+            order = serializer.save(patient=patient_user, pharmacist=user)
+        else:
+            order = serializer.save(patient=user)
         if order.pharmacist:
             Notification.objects.create(
                 user=order.pharmacist,
@@ -205,7 +212,7 @@ class PharmacyStockViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Un pharmacien ne voit que son propre stock
-        return PharmacyStock.objects.filter(pharmacy__pharmacist__user=self.request.user)
+        return PharmacyStock.objects.filter(pharmacy__pharmacist__user=self.request.user).order_by('medication__name')
 
     def perform_create(self, serializer):
         from rest_framework.exceptions import PermissionDenied

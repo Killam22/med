@@ -532,9 +532,17 @@ class ChangePasswordView(APIView):
 class RequestProfileUpdateView(generics.CreateAPIView):
     """
     Permet à l'utilisateur de soumettre une demande de changement de nom/prénom.
+    GET  → retourne les demandes de l'utilisateur connecté
+    POST → soumet une nouvelle demande
     """
     serializer_class = ProfileUpdateRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        from .models import ProfileUpdateRequest
+        qs = ProfileUpdateRequest.objects.filter(user=request.user).order_by('-created_at')
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         # Vérifie s'il y a déjà une demande en attente

@@ -16,18 +16,35 @@ class ParticipantSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     is_mine = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ['id', 'conversation', 'sender', 'sender_name', 'content',
+                  'file', 'file_url', 'file_name',
                   'is_read', 'is_deleted', 'edited_at', 'created_at', 'is_mine']
-        read_only_fields = ['sender', 'is_read', 'is_deleted', 'edited_at', 'is_mine']
+        read_only_fields = ['sender', 'is_read', 'is_deleted', 'edited_at', 'is_mine',
+                            'file_url', 'file_name']
 
     def get_is_mine(self, obj):
         request = self.context.get('request')
         if not request:
             return False
         return obj.sender_id == request.user.id
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
+
+    def get_file_name(self, obj):
+        if not obj.file:
+            return None
+        return obj.file.name.split('/')[-1]
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -69,10 +86,13 @@ class ConversationSerializer(serializers.ModelSerializer):
 
 class UserReportSerializer(serializers.ModelSerializer):
     reporter_name = serializers.CharField(source='reporter.get_full_name', read_only=True)
+    reporter_role = serializers.CharField(source='reporter.role', read_only=True)
     reported_name = serializers.CharField(source='reported_user.get_full_name', read_only=True)
+    reported_role = serializers.CharField(source='reported_user.role', read_only=True)
 
     class Meta:
         model = UserReport
-        fields = ['id', 'reporter', 'reporter_name', 'reported_user', 'reported_name',
+        fields = ['id', 'reporter', 'reporter_name', 'reporter_role',
+                  'reported_user', 'reported_name', 'reported_role',
                   'reason', 'status', 'created_at']
         read_only_fields = ['reporter', 'status']

@@ -16,6 +16,9 @@ class Caretaker(models.Model):
     rating         = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     total_reviews  = models.PositiveIntegerField(default=0)
 
+    class Meta:
+        ordering = ['id']
+
     def __str__(self):
         return f"GM. {self.user.last_name} (Garde-Malade)"
 
@@ -149,6 +152,9 @@ class MedicationSchedule(models.Model):
     medications = models.JSONField(default=dict)  # {morning: [], afternoon: [], evening: []}
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Plan médicaments — {self.care_request.patient.get_full_name()}"
