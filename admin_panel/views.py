@@ -26,6 +26,72 @@ from appointments.serializers import AppointmentSerializer
 
 User = get_user_model()
 
+
+class SystemStatusView(APIView):
+    """
+    GET /api/admin/system-status/
+    Retourne l'état des dépendances critiques de la plateforme.
+    Aucune valeur hardcodée : tout est calculé en live.
+    """
+    permission_classes = [IsAdminRole]
+    renderer_classes   = [JSONRenderer]
+
+    def get(self, request):
+        import django
+        from django.conf import settings as dj_settings
+        from django.db import connection
+
+        # Version PostgreSQL réelle
+        db_version = None
+        db_status  = 'ok'
+        try:
+            with connection.cursor() as cur:
+                cur.execute("SELECT version();")
+                row = cur.fetchone()
+                if row:
+                    raw = row[0]
+                    # "PostgreSQL 16.2 on x86_64-..." → "PostgreSQL 16.2"
+                    parts = raw.split(' on ')
+                    db_version = parts[0] if parts else raw
+        except Exception as e:
+            db_status  = 'error'
+            db_version = str(e)[:80]
+
+        # Email : on vérifie juste que la config est présente (pas d'envoi)
+        email_status = 'ok' if (
+            getattr(dj_settings, 'EMAIL_HOST_USER', '') and
+            getattr(dj_settings, 'EMAIL_HOST_PASSWORD', '')
+        ) else 'unconfigured'
+
+        # Compteurs
+        try:
+            users_total  = User.objects.count()
+            users_active = User.objects.filter(is_active=True).count()
+            users_pending = User.objects.filter(verification_status='pending').count()
+        except Exception:
+            users_total = users_active = users_pending = 0
+
+        return Response({
+            'backend': {
+                'status':  'ok',
+                'django':  django.get_version(),
+                'debug':   bool(dj_settings.DEBUG),
+            },
+            'database': {
+                'status':  db_status,
+                'version': db_version,
+            },
+            'email': {
+                'status': email_status,
+                'host':   getattr(dj_settings, 'EMAIL_HOST', ''),
+            },
+            'users': {
+                'total':   users_total,
+                'active':  users_active,
+                'pending': users_pending,
+            },
+        })
+
 def create_audit_log(message, level, request):
     ip = request.META.get('REMOTE_ADDR')
     actor = request.user if request.user.is_authenticated else None
