@@ -241,6 +241,24 @@ class QuickPrescriptionView(APIView):
                 patient = Patient.objects.get(pk=patient_id)
             except Patient.DoesNotExist:
                 return Response({'error': 'Patient introuvable.'}, status=404)
+
+            # SÉCURITÉ : un médecin ne peut prescrire qu'à un patient lié
+            # (RDV existant OU demande de liaison acceptée).
+            from appointments.models import Appointment
+            has_appt = Appointment.objects.filter(doctor=doctor, patient=patient).exists()
+            has_link = False
+            try:
+                from patients.models import PatientLinkRequest
+                has_link = PatientLinkRequest.objects.filter(
+                    doctor=doctor, patient=patient, status='accepted'
+                ).exists()
+            except Exception:
+                pass
+            if not (has_appt or has_link):
+                return Response(
+                    {'error': "Accès refusé : aucun lien thérapeutique avec ce patient."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
             try:
                 external_patient = ExternalPatient.objects.get(pk=external_patient_id, doctor=doctor)
@@ -339,7 +357,6 @@ class QRImageView(APIView):
     permission_classes = [IsAuthenticated, IsPrescriptionOwner]
 
     def get(self, request, pk):
-        print(f"DEBUG: QRImageView pour {pk}")
         from .models import Prescription
         prescription = get_object_or_404(Prescription, pk=pk)
         self.check_object_permissions(request, prescription)
@@ -372,6 +389,7 @@ class PrescriptionPDFView(APIView):
                 f'attachment; filename="ordonnance-{str(prescription.id)[:8]}.pdf"'
             )
             return response
-        except Exception as e:
-            print(f"DEBUG ERROR PDF: {e}")
-            return HttpResponse(f"Erreur génération PDF: {e}", status=500)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Erreur génération PDF prescription %s", pk)
+            return HttpResponse("Erreur génération PDF.", status=500)

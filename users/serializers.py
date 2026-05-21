@@ -14,6 +14,32 @@ from caretaker.models import Caretaker, CaretakerCertificate, CaretakerDiploma
 from .models import EmailOTP, ProfileUpdateRequest
 User = get_user_model()
 
+# ── Validation uploads (CIN, diplômes, scans pro) ────────────────────────────
+_MAX_UPLOAD_MB = 5
+_ALLOWED_IMG_EXT = {'.jpg', '.jpeg', '.png', '.webp'}
+_ALLOWED_DOC_EXT = _ALLOWED_IMG_EXT | {'.pdf'}
+_ALLOWED_IMG_MIME = {'image/jpeg', 'image/png', 'image/webp'}
+_ALLOWED_DOC_MIME = _ALLOWED_IMG_MIME | {'application/pdf'}
+
+
+def _validate_upload(f, allowed_ext, allowed_mime, label):
+    if f is None:
+        return f
+    import os as _os
+    size_mb = getattr(f, 'size', 0) / (1024 * 1024)
+    if size_mb > _MAX_UPLOAD_MB:
+        raise serializers.ValidationError(f"{label} : fichier trop volumineux (max {_MAX_UPLOAD_MB} MB).")
+    name = getattr(f, 'name', '') or ''
+    ext = _os.path.splitext(name)[1].lower()
+    if ext not in allowed_ext:
+        raise serializers.ValidationError(
+            f"{label} : extension '{ext}' non autorisée. Acceptées : {', '.join(sorted(allowed_ext))}."
+        )
+    ctype = getattr(f, 'content_type', '') or ''
+    if ctype and ctype not in allowed_mime:
+        raise serializers.ValidationError(f"{label} : type MIME '{ctype}' non autorisé.")
+    return f
+
 # ── 🔑 Tokens JWT Personnalisés ────────────────────────────────────────────────
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -81,6 +107,15 @@ class RegisterUserSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password": "Les mots de passe ne correspondent pas."})
         return attrs
+
+    def validate_id_card_recto(self, f):
+        return _validate_upload(f, _ALLOWED_IMG_EXT, _ALLOWED_IMG_MIME, "Pièce d'identité (recto)")
+
+    def validate_id_card_verso(self, f):
+        return _validate_upload(f, _ALLOWED_IMG_EXT, _ALLOWED_IMG_MIME, "Pièce d'identité (verso)")
+
+    def validate_photo(self, f):
+        return _validate_upload(f, _ALLOWED_IMG_EXT, _ALLOWED_IMG_MIME, "Photo de profil")
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
@@ -154,6 +189,9 @@ class RegisterDoctorSerializer(RegisterUserSerializer):
             'specialty', 'order_number', 'practice_authorization',
             'experience_years', 'clinic_name', 'cnas_coverage', 'maps_url'
         ]
+
+    def validate_practice_authorization(self, f):
+        return _validate_upload(f, _ALLOWED_DOC_EXT, _ALLOWED_DOC_MIME, "Autorisation d'exercer")
 
     @transaction.atomic
     def create(self, validated_data):
@@ -232,6 +270,12 @@ class RegisterPharmacistSerializer(RegisterUserSerializer):
             'name', 'agreement_number', 'agreement_scan', 'registre_commerce', 'cnas_coverage', 'maps_url',
         ]
 
+    def validate_agreement_scan(self, f):
+        return _validate_upload(f, _ALLOWED_DOC_EXT, _ALLOWED_DOC_MIME, "Scan agrément")
+
+    def validate_registre_commerce(self, f):
+        return _validate_upload(f, _ALLOWED_DOC_EXT, _ALLOWED_DOC_MIME, "Registre du commerce")
+
     @transaction.atomic
     def create(self, validated_data):
         order_reg_num = validated_data.pop('order_registration_number')
@@ -265,6 +309,9 @@ class RegisterCaretakerSerializer(RegisterUserSerializer):
 
     class Meta(RegisterUserSerializer.Meta):
         fields = RegisterUserSerializer.Meta.fields + ['criminal_record_scan', 'availability_area', 'experience_years', 'tarif_de_base', 'maps_url']
+
+    def validate_criminal_record_scan(self, f):
+        return _validate_upload(f, _ALLOWED_DOC_EXT, _ALLOWED_DOC_MIME, "Extrait casier judiciaire")
 
     @transaction.atomic
     def create(self, validated_data):

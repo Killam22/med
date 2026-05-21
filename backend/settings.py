@@ -14,11 +14,16 @@ load_dotenv(BASE_DIR / ".env", encoding='utf-8', override=True)
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
-SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY manquant dans .env — refus de démarrer pour raisons de sécurité.")
 
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+_allowed = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+ALLOWED_HOSTS = [h.strip() for h in _allowed.split(',') if h.strip()]
+if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
+    raise RuntimeError("ALLOWED_HOSTS doit être explicite (pas '*') quand DEBUG=False.")
 
 # ── Installed Apps ────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -92,11 +97,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE':   'django.db.backends.postgresql',
-        'NAME':     'medical_db',
-        'USER':     'postgres',
-        'PASSWORD': 'yassir',
-        'HOST':     'localhost',
-        'PORT':     '5432',
+        'NAME':     os.environ.get('DB_NAME', 'medical_db'),
+        'USER':     os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST':     os.environ.get('DB_HOST', 'localhost'),
+        'PORT':     os.environ.get('DB_PORT', '5432'),
         'OPTIONS':  {'client_encoding': 'UTF8'},
     },
 }
@@ -135,11 +140,12 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon':      '200/hour',
-        'user':      '5000/hour',
-        'login':     '5/minute',
-        'otp_send':  '5/minute',
-        'diagnosis': '50/day',    # ✅ NOUVEAU — limite les diagnostics IA à 5/jour/patient
+        'anon':       '200/hour',
+        'user':       '5000/hour',
+        'login':      '5/minute',
+        'otp_send':   '5/minute',
+        'otp_verify': '10/minute',   # ← brute-force OTP reset
+        'diagnosis':  '50/day',
     }
 }
 
@@ -168,7 +174,25 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-CORS_ALLOW_ALL_ORIGINS = True  # dev only
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL', 'False').lower() in ('true', '1', 'yes')
+_cors = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(',') if o.strip()]
+CORS_ALLOW_CREDENTIALS = True
+if not DEBUG and CORS_ALLOW_ALL_ORIGINS:
+    raise RuntimeError("CORS_ALLOW_ALL=True interdit quand DEBUG=False — configurer CORS_ALLOWED_ORIGINS.")
+
+# ── Security headers (prod) ──────────────────────────────────────────────────
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 an
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    X_FRAME_OPTIONS = 'DENY'
 
 # ── Internationalisation ──────────────────────────────────────────────────────
 LANGUAGE_CODE = 'fr-fr'

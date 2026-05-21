@@ -35,32 +35,24 @@ from .serializers import (
     CaretakerUnifiedSerializer,
     ProfileUpdateRequestSerializer,
 )
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
+User = get_user_model()
+
+
 class LogoutView(APIView):
+    """Blackliste le refresh token côté serveur."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get('refresh')
+        refresh_token = request.data.get('refresh') or request.data.get('refresh_token')
         if not refresh_token:
-            return Response(
-                {'error': 'Refresh token requis.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Refresh token requis.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
+            RefreshToken(refresh_token).blacklist()
         except TokenError:
-            return Response(
-                {'error': 'Token invalide ou déjà révoqué.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        return Response(
-            {'message': 'Déconnexion réussie.'},
-            status=status.HTTP_200_OK
-        )
-User = get_user_model()
+            return Response({'error': 'Token invalide ou déjà révoqué.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Déconnexion réussie.'}, status=status.HTTP_200_OK)
 
 # Sel cryptographique pour les tokens de reset (ne pas changer en prod sans invalider tous les tokens actifs)
 _RESET_SALT = 'Healy-password-reset-v1'
@@ -76,6 +68,11 @@ class LoginRateThrottle(AnonRateThrottle):
 class OtpSendThrottle(AnonRateThrottle):
     """Limite l'envoi d'OTP à 5/minute par IP pour éviter le spam."""
     scope = 'otp_send'
+
+
+class OtpVerifyThrottle(AnonRateThrottle):
+    """Limite la vérification d'OTP à 10/minute par IP — anti-brute-force."""
+    scope = 'otp_verify'
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Endpoint JWT enrichi (role, full_name, email) + protégé par le LoginRateThrottle."""
@@ -167,6 +164,7 @@ class VerifyRegisterOTPView(APIView):
       POST { email, otp } → is_active passe à True + tokens JWT renvoyés.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [OtpVerifyThrottle]
 
     def post(self, request):
         email    = request.data.get('email', '').strip()
@@ -230,22 +228,6 @@ class VerifyRegisterOTPView(APIView):
             'role': user.role,
             'email': user.email,
         }, status=status.HTTP_200_OK)
-#--- LOGOUT----------
-
-class LogoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        try:
-            # Le Front-End doit envoyer le 'refresh_token' dans le corps de la requête
-            refresh_token = request.data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist() # Invalide définitivement le token
-
-            return Response({"message": "Déconnexion réussie."}, status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response({"erreur": "Token invalide ou manquant."}, status=status.HTTP_400_BAD_REQUEST)
-
 # ── 2b. PRÉ-VÉRIFICATION EMAIL AVANT INSCRIPTION ─────────────────────────────
 
 class SendRegisterOTPView(APIView):
@@ -283,6 +265,7 @@ class VerifyRegisterPreOTPView(APIView):
     (l'activation finale reste gérée par VerifyRegisterOTPView après la soumission complète).
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [OtpVerifyThrottle]
 
     def post(self, request):
         email    = request.data.get('email', '').strip().lower()
@@ -349,6 +332,7 @@ class PasswordResetRequestView(APIView):
     → Répond toujours 200 (anti-énumération : ne révèle pas si l'email existe).
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [OtpSendThrottle]
 
     def post(self, request):
         email = request.data.get('email', '').strip()
@@ -372,6 +356,10 @@ class PasswordResetRequestView(APIView):
         return Response(GENERIC_MSG, status=status.HTTP_200_OK)
 
 
+class PasswordResetRequestThrottle(AnonRateThrottle):
+    scope = 'otp_send'
+
+
 class PasswordResetVerifyOTPView(APIView):
     """
     Étape 2 : POST { email, otp }
@@ -379,6 +367,7 @@ class PasswordResetVerifyOTPView(APIView):
     Le token encode un hash partiel du mot de passe actuel → usage unique automatique.
     """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [OtpVerifyThrottle]
 
     def post(self, request):
         email    = request.data.get('email', '').strip()

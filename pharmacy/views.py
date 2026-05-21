@@ -230,23 +230,28 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
 class PharmacyStockViewSet(viewsets.ModelViewSet):
     """API pour les pharmaciens pour gérer leur inventaire personnel"""
     serializer_class = PharmacyStockSerializer
+    pagination_class = None  # retourner tout le stock sans pagination
 
     def get_queryset(self):
         # Un pharmacien ne voit que son propre stock
         return PharmacyStock.objects.filter(pharmacy__pharmacist__user=self.request.user).order_by('medication__name')
 
     def perform_create(self, serializer):
-        from rest_framework.exceptions import PermissionDenied
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        from django.db import IntegrityError
         if not hasattr(self.request.user, 'pharmacist_profile'):
             raise PermissionDenied("Vous devez être pharmacien pour gérer un stock.")
-        
-        # S'assurer que le pharmacien a bien une pharmacie enregistrée
+
         try:
             pharmacy = self.request.user.pharmacist_profile.pharmacy
         except Exception:
             raise PermissionDenied("Vous devez configurer votre pharmacie avant d'ajouter du stock.")
-            
-        stock = serializer.save(pharmacy=pharmacy)
+
+        try:
+            stock = serializer.save(pharmacy=pharmacy)
+        except IntegrityError:
+            raise ValidationError({"detail": "Ce médicament existe déjà dans votre stock. Utilisez le bouton Modifier pour mettre à jour sa quantité ou son prix."})
+
         self._check_low_stock(stock)
 
     def perform_update(self, serializer):

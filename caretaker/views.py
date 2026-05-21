@@ -109,6 +109,34 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         return Response({"status": f"Demande {new_status}", "details": msg, "care_request": serializer.data})
 
     @action(detail=True, methods=['post'])
+    def terminate(self, request, pk=None):
+        """Garde-malade : se résilier d'un patient (mettre fin à la prise en charge)."""
+        care_request = self.get_object()
+
+        if request.user != care_request.caretaker.user:
+            return Response({"error": "Non autorisé"}, status=status.HTTP_403_FORBIDDEN)
+
+        if care_request.status not in [CareRequest.Status.ACCEPTED]:
+            return Response({"error": "Seule une relation active peut être résiliée."}, status=status.HTTP_400_BAD_REQUEST)
+
+        care_request.status = CareRequest.Status.CANCELLED
+        care_request.save()
+
+        from notifications.models import Notification
+        reason = request.data.get('reason', '')
+        msg_body = f"Le garde-malade {care_request.caretaker.user.get_full_name()} a mis fin à la prise en charge."
+        if reason:
+            msg_body += f" Motif : {reason}"
+        Notification.objects.create(
+            user=care_request.patient,
+            title="Fin de prise en charge",
+            message=msg_body,
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
+
+        return Response({"status": "Résiliation effectuée."})
+
+    @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
         """Envoyer un message de chat dans le cadre d'une demande"""
         care_request = self.get_object()

@@ -386,7 +386,7 @@ class CreateReviewView(generics.CreateAPIView):
 class DoctorReviewListView(generics.ListAPIView):
     """GET /api/doctors/{id}/reviews/ — public read-only reviews for a doctor."""
     serializer_class = ReviewSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         doctor_id = self.kwargs['pk']
@@ -437,9 +437,24 @@ class PatientRecordView(APIView):
         except Patient.DoesNotExist:
             return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+        # SÉCURITÉ : seul un RDV honoré (confirmed/completed/in_progress) OU une
+        # liaison patient-médecin acceptée donne accès au dossier. Un RDV
+        # annulé/refusé/pending n'ouvre pas l'accès.
+        has_real_appt = Appointment.objects.filter(
+            doctor=doctor, patient=patient,
+            status__in=('confirmed', 'completed', 'in_progress'),
+        ).exists()
+        has_link = False
+        try:
+            from patients.models import PatientLinkRequest
+            has_link = PatientLinkRequest.objects.filter(
+                doctor=doctor, patient=patient, status='accepted'
+            ).exists()
+        except Exception:
+            pass
+        if not (has_real_appt or has_link):
             return Response(
-                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                {"detail": "Accès refusé : aucun lien thérapeutique avec ce patient."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -525,9 +540,24 @@ class DoctorAddDiagnosisView(APIView):
         except Patient.DoesNotExist:
             return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+        # SÉCURITÉ : seul un RDV honoré (confirmed/completed/in_progress) OU une
+        # liaison patient-médecin acceptée donne accès au dossier. Un RDV
+        # annulé/refusé/pending n'ouvre pas l'accès.
+        has_real_appt = Appointment.objects.filter(
+            doctor=doctor, patient=patient,
+            status__in=('confirmed', 'completed', 'in_progress'),
+        ).exists()
+        has_link = False
+        try:
+            from patients.models import PatientLinkRequest
+            has_link = PatientLinkRequest.objects.filter(
+                doctor=doctor, patient=patient, status='accepted'
+            ).exists()
+        except Exception:
+            pass
+        if not (has_real_appt or has_link):
             return Response(
-                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                {"detail": "Accès refusé : aucun lien thérapeutique avec ce patient."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -581,9 +611,24 @@ class DoctorAddTreatmentView(APIView):
         except Patient.DoesNotExist:
             return Response({"detail": "Patient introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not Appointment.objects.filter(doctor=doctor, patient=patient).exists():
+        # SÉCURITÉ : seul un RDV honoré (confirmed/completed/in_progress) OU une
+        # liaison patient-médecin acceptée donne accès au dossier. Un RDV
+        # annulé/refusé/pending n'ouvre pas l'accès.
+        has_real_appt = Appointment.objects.filter(
+            doctor=doctor, patient=patient,
+            status__in=('confirmed', 'completed', 'in_progress'),
+        ).exists()
+        has_link = False
+        try:
+            from patients.models import PatientLinkRequest
+            has_link = PatientLinkRequest.objects.filter(
+                doctor=doctor, patient=patient, status='accepted'
+            ).exists()
+        except Exception:
+            pass
+        if not (has_real_appt or has_link):
             return Response(
-                {"detail": "Accès refusé : aucun rendez-vous entre ce médecin et ce patient."},
+                {"detail": "Accès refusé : aucun lien thérapeutique avec ce patient."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
