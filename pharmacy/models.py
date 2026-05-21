@@ -28,6 +28,7 @@ class Pharmacy(models.Model):
     agreement_number = models.CharField(max_length=50, unique=True)
     agreement_scan = models.FileField(upload_to='agreement_scans/', null=True, blank=False, validators=[validate_file_type])
     registre_commerce = models.FileField(upload_to='registre_commerce/', null=True, blank=False, validators=[validate_file_type])
+    maps_url = models.URLField(max_length=500, blank=True, default="")
     class Meta:
         ordering = ['name']
 

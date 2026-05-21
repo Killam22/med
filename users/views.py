@@ -30,6 +30,9 @@ from .serializers import (
     RegisterCaretakerSerializer,
     UserSerializer,
     PatientUnifiedSerializer,
+    DoctorUnifiedSerializer,
+    PharmacistUnifiedSerializer,
+    CaretakerUnifiedSerializer,
     ProfileUpdateRequestSerializer,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -254,6 +257,9 @@ class SendRegisterOTPView(APIView):
     throttle_classes = [OtpSendThrottle]
 
     def post(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+
         email = request.data.get('email', '').strip().lower()
         if not email:
             return Response({'error': 'Email requis.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -262,8 +268,12 @@ class SendRegisterOTPView(APIView):
         try:
             otp_obj = EmailOTP.generate(email=email, purpose=EmailOTP.PURPOSE_REGISTER)
             send_otp_email(email, otp_obj.otp, purpose='register')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Échec envoi OTP register à %s : %s", email, e)
+            return Response(
+                {'error': "Impossible d'envoyer l'email. Vérifiez votre adresse ou réessayez."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         return Response({'message': 'Code envoyé.'}, status=status.HTTP_200_OK)
 
 
@@ -315,8 +325,9 @@ class UnifiedProfileView(generics.RetrieveUpdateAPIView):
         role = self.request.user.role
         dispatch = {
             'patient': PatientUnifiedSerializer,
-            # 'doctor':     DoctorUnifiedSerializer,   # à ajouter au fur et à mesure
-            # 'pharmacist': PharmacistUnifiedSerializer,
+            'doctor': DoctorUnifiedSerializer,
+            'pharmacist': PharmacistUnifiedSerializer,
+            'caretaker': CaretakerUnifiedSerializer,
         }
         return dispatch.get(role, UserSerializer)
 
@@ -551,4 +562,4 @@ class RequestProfileUpdateView(generics.CreateAPIView):
             from rest_framework.exceptions import ValidationError
             raise ValidationError("Vous avez déjà une demande de changement de profil en attente.")
             
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user)

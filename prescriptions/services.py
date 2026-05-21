@@ -34,19 +34,27 @@ class QRCodeService:
     @staticmethod
     def validate_and_scan(token_str, user):
         try:
-            qr_token = QRToken.objects.get(token=token_str)
-            if not qr_token.is_valid():
-                return {'valid': False, 'error': 'Token expiré ou déjà utilisé.'}
-            # Vérification signature numérique HMAC-SHA256
-            if qr_token.digital_signature and not qr_token.verify_signature():
-                return {'valid': False, 'error': 'Signature invalide — ordonnance potentiellement falsifiée.'}
-            qr_token.is_used    = True
-            qr_token.scanned_by = user
-            qr_token.scanned_at = timezone.now()
-            qr_token.save()
-            return {'valid': True, 'prescription': qr_token.prescription}
+            qr_token = QRToken.objects.select_related('prescription').get(token=token_str)
         except QRToken.DoesNotExist:
             return {'valid': False, 'error': 'Token invalide.'}
+
+        prescription = qr_token.prescription
+
+        if prescription.is_expired():
+            return {'valid': False, 'error': 'Ordonnance expirée.'}
+
+        if prescription.status == 'cancelled':
+            return {'valid': False, 'error': 'Ordonnance annulée.'}
+
+        if qr_token.digital_signature and not qr_token.verify_signature():
+            return {'valid': False, 'error': 'Signature invalide — ordonnance potentiellement falsifiée.'}
+
+        # Enregistre le dernier scan (audit) sans bloquer les scans suivants
+        qr_token.scanned_by = user
+        qr_token.scanned_at = timezone.now()
+        qr_token.save(update_fields=['scanned_by', 'scanned_at'])
+
+        return {'valid': True, 'prescription': prescription}
 
 class CNASService:
     @staticmethod

@@ -93,16 +93,15 @@ class SymptomAnalysisListView(generics.ListCreateAPIView):
 class DoctorPatientsListView(generics.ListAPIView):
     """GET /api/patients/my-patients/ — Patients liés au médecin (lien accepté ou RDV)."""
     serializer_class = PatientSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsDoctor]
     pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
-        from rest_framework.exceptions import PermissionDenied
-        if getattr(user, 'role', None) != 'doctor':
+        doctor = getattr(user, 'doctor_profile', None)
+        if doctor is None:
+            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Accès réservé aux médecins.")
-
-        doctor = user.doctor_profile
 
         # Patients dont le médecin a révoqué la liaison — on les exclut partout
         revoked_ids = PatientLinkRequest.objects.filter(
@@ -126,12 +125,10 @@ class DoctorPatientsListView(generics.ListAPIView):
 
 
 class PatientDashboardView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsPatient]
     renderer_classes = [JSONRenderer]
 
     def get(self, request):
-        if getattr(request.user, 'role', None) != 'patient':
-            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
 
         user = request.user
         today = timezone.now().date()

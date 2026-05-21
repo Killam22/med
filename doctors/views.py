@@ -150,12 +150,10 @@ class DayOffViewSet(viewsets.ModelViewSet):
 
 
 class DoctorDashboardView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsDoctor]
     renderer_classes = [JSONRenderer]
 
     def get(self, request):
-        if getattr(request.user, 'role', None) != 'doctor':
-            return Response({"error": "Accès refusé"}, status=status.HTTP_403_FORBIDDEN)
 
         user = request.user
         today = timezone.now().date()

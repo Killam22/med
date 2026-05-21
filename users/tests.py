@@ -30,6 +30,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import EmailOTP
 from patients.models import Patient
+from doctors.models import Doctor
+from pharmacy.models import Pharmacist, Pharmacy
 
 User = get_user_model()
 
@@ -315,6 +317,64 @@ class ChameleonProfileViewTest(APITestCase):
         self.patient_user.refresh_from_db()
         self.assertEqual(self.patient_user.first_name, "Fatima",
                          msg="Le prénom n'a pas été mis à jour en DB.")
+
+    def test_get_me_includes_doctor_maps_url(self):
+        doctor_user = User.objects.create_user(
+            username="doc_test@example.com",
+            email="doc_test@example.com",
+            password="Str0ngPass!",
+            first_name="Dr",
+            last_name="Test",
+            role="doctor",
+            id_card_number="DOC-TEST-001",
+            is_active=True,
+        )
+        Doctor.objects.create(
+            user=doctor_user,
+            specialty="general",
+            order_number="DOC-1234",
+            practice_authorization=None,
+            experience_years=5,
+            clinic_name="Clinique Test",
+            cnas_coverage=False,
+            maps_url="https://maps.google.com/?q=test",
+        )
+        token = get_access_token(doctor_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.get(self.me_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get('role'), 'doctor')
+        self.assertEqual(response.data.get('maps_url'), "https://maps.google.com/?q=test")
+
+    def test_patch_me_updates_doctor_maps_url(self):
+        doctor_user = User.objects.create_user(
+            username="doc_patch@example.com",
+            email="doc_patch@example.com",
+            password="Str0ngPass!",
+            first_name="Dr",
+            last_name="Patch",
+            role="doctor",
+            id_card_number="DOC-PATCH-001",
+            is_active=True,
+        )
+        doctor_profile = Doctor.objects.create(
+            user=doctor_user,
+            specialty="general",
+            order_number="DOC-5678",
+            practice_authorization=None,
+            experience_years=8,
+            clinic_name="Clinique Patch",
+            cnas_coverage=True,
+            maps_url="https://maps.google.com/?q=old",
+        )
+        token = get_access_token(doctor_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.patch(self.me_url, {"maps_url": "https://maps.google.com/?q=new"}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        doctor_profile.refresh_from_db()
+        self.assertEqual(doctor_profile.maps_url, "https://maps.google.com/?q=new")
 
     # ── Test 3.4 : PATCH /me/ met à jour le profil médical ───────────────────
     def test_patch_me_updates_patient_profile_nested(self):

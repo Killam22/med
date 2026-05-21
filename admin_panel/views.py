@@ -180,7 +180,7 @@ class AdminAppointmentListView(generics.ListAPIView):
 
 
 class AdminDashboardView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
     renderer_classes = [JSONRenderer]
 
     def get(self, request):

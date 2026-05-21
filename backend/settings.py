@@ -138,6 +138,7 @@ REST_FRAMEWORK = {
         'anon':      '200/hour',
         'user':      '5000/hour',
         'login':     '5/minute',
+        'otp_send':  '5/minute',
         'diagnosis': '50/day',    # ✅ NOUVEAU — limite les diagnostics IA à 5/jour/patient
     }
 }
@@ -193,9 +194,9 @@ EMAIL_BACKEND      = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST         = 'smtp.gmail.com'
 EMAIL_USE_TLS      = True
 EMAIL_PORT         = 587
-EMAIL_HOST_USER    = 'medicalsmartapp@gmail.com'
-EMAIL_HOST_PASSWORD = 'yarvxitxohgcjkwo'
-DEFAULT_FROM_EMAIL = 'medicalsmartapp@gmail.com'
+EMAIL_HOST_USER    = os.environ.get('EMAIL_HOST_USER', 'medicalsmartapp@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'medicalsmartapp@gmail.com')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ✅ CONFIG BOT IA & RAG — diagnostic_ai

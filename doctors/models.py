@@ -33,6 +33,7 @@ class Doctor(models.Model):
     is_verified = models.BooleanField(default=False)
     languages = models.CharField(max_length=200, blank=True, help_text="Ex: Français, Arabe, Anglais")
     cnas_coverage = models.BooleanField(default=False)
+    maps_url = models.URLField(max_length=500, blank=True, default="")
 
     def __str__(self):
         return f"Dr. {self.user.get_full_name()}"

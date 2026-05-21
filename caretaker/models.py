@@ -13,6 +13,7 @@ class Caretaker(models.Model):
     is_available = models.BooleanField(default=True, help_text="Visible dans les recherches des patients")
     criminal_record_scan = models.FileField(upload_to='caretaker_records/', validators=[validate_file_type], null=True, blank=False) 
     tarif_de_base  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    maps_url = models.URLField(max_length=500, blank=True, default="")
     rating         = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     total_reviews  = models.PositiveIntegerField(default=0)
 

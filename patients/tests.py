@@ -54,7 +54,10 @@ class DoctorPatientsTests(APITestCase):
         self.client.force_authenticate(user=self.doc_user1)
         response = self.client.get('/api/patients/my-patients/', format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results', response.data)
+        if isinstance(response.data, list):
+            results = response.data
+        else:
+            results = response.data.get('results', response.data)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]['id'], self.patientA.id)
 

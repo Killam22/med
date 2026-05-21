@@ -68,6 +68,29 @@ class PrescriptionAPITests(APITestCase):
         prescription = Prescription.objects.get(id=response.data['id'])
         self.assertTrue(hasattr(prescription, 'qr_token'))
 
+    def test_doctor_can_create_quick_prescription_with_string_valid_until(self):
+        self.client.force_authenticate(user=self.doc_user)
+        valid_until = (date.today() + timedelta(days=30)).isoformat()
+        data = {
+            "patient_id": self.patient.id,
+            "chief_complaint": "Renouvellement de traitement",
+            "notes": "Prendre quotidiennement",
+            "valid_until": valid_until,
+            "items": [
+                {
+                    "drug_name": "Vitamin C",
+                    "dosage": "1g",
+                    "frequency": "2x_day",
+                    "duration": "10 jours",
+                    "quantity": 2,
+                }
+            ]
+        }
+        response = self.client.post('/api/prescriptions/quick/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['valid_until'], valid_until)
+        self.assertTrue(Prescription.objects.filter(id=response.data['id']).exists())
+
     def test_patient_can_view_own_prescription(self):
         # Manually create a prescription
         rx = Prescription.objects.create(

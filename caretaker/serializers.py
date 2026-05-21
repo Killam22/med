@@ -23,7 +23,7 @@ class CaretakerOwnProfileSerializer(serializers.ModelSerializer):
         model = Caretaker
         fields = ['id', 'certification', 'experience_years', 'bio',
                   'availability_area', 'is_available', 'tarif_de_base',
-                  'rating', 'total_reviews']
+                  'maps_url', 'rating', 'total_reviews']
         read_only_fields = ['id', 'rating', 'total_reviews']
 
 

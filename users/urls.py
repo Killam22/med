@@ -34,6 +34,7 @@ from .views import (
 urlpatterns = [
     # ── 🔐 Authentification (JWT avec Rate Limiting) ───────────────────────────
     path('login/', CustomTokenObtainPairView.as_view(), name='login'),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
 
@@ -63,4 +64,5 @@ urlpatterns = [
     path('password/reset/request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password/reset/verify/', PasswordResetVerifyOTPView.as_view(), name='password_reset_verify'),
     path('password/reset/set/', PasswordResetConfirmView.as_view(), name='password_reset_set'),
+    path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]

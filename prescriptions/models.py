@@ -118,7 +118,11 @@ class QRToken(models.Model):
         if not self.token:
             self.token = secrets.token_urlsafe(48)
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(days=90)
+            try:
+                valid_until = self.prescription.valid_until
+                self.expires_at = timezone.datetime.combine(valid_until, timezone.datetime.max.time()).replace(tzinfo=timezone.get_current_timezone())
+            except Exception:
+                self.expires_at = timezone.now() + timedelta(days=90)
         # Génère la signature numérique à la création
         if not self.digital_signature and self.prescription_id:
             try:
@@ -131,7 +135,7 @@ class QRToken(models.Model):
         super().save(*args, **kwargs)
 
     def is_valid(self):
-        return not self.is_used and self.expires_at > timezone.now()
+        return self.expires_at > timezone.now()
 
     def verify_signature(self) -> bool:
         """Vérifie que le QR n'a pas été falsifié depuis son émission."""

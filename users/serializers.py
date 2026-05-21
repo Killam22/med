@@ -1,5 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -116,31 +117,57 @@ class RegisterPatientSerializer(RegisterUserSerializer):
         return user
 
 
+_SPECIALTY_MAP = {
+    "Généraliste":       "general",
+    "Cardiologue":       "cardiology",
+    "Dermatologue":      "dermatology",
+    "Gynécologue":       "gynecology",
+    "Neurologue":        "neurology",
+    "Ophtalmologue":     "ophthalmology",
+    "Orthopédiste":      "orthopedics",
+    "Pédiatre":          "pediatrics",
+    "Psychiatre":        "psychiatry",
+    "Urologue":          "urology",
+    "Radiologue":        "general",
+    "Rhumatologue":      "general",
+    "Endocrinologue":    "general",
+    "Gastro-entérologue":"general",
+}
+
 class RegisterDoctorSerializer(RegisterUserSerializer):
     specialty = serializers.CharField(write_only=True)
-    order_number = serializers.CharField(write_only=True)
+    order_number = serializers.CharField(
+        write_only=True,
+        validators=[UniqueValidator(
+            queryset=Doctor.objects.all(),
+            message="Ce numéro d'inscription à l'Ordre est déjà utilisé.",
+        )],
+    )
     practice_authorization = serializers.FileField(write_only=True)
     experience_years = serializers.IntegerField(write_only=True)
     clinic_name = serializers.CharField(write_only=True)
     cnas_coverage = serializers.BooleanField(write_only=True)
+    maps_url = serializers.URLField(write_only=True, required=False, allow_blank=True, default='')
 
     class Meta(RegisterUserSerializer.Meta):
         fields = RegisterUserSerializer.Meta.fields + [
             'specialty', 'order_number', 'practice_authorization',
-            'experience_years', 'clinic_name', 'cnas_coverage'
+            'experience_years', 'clinic_name', 'cnas_coverage', 'maps_url'
         ]
 
     @transaction.atomic
     def create(self, validated_data):
-        spec = validated_data.pop('specialty')
+        spec_raw = validated_data.pop('specialty')
+        spec = _SPECIALTY_MAP.get(spec_raw, spec_raw)
         order = validated_data.pop('order_number')
         practice_auth = validated_data.pop('practice_authorization')
         exp_years = validated_data.pop('experience_years')
         clinic = validated_data.pop('clinic_name')
         cnas = validated_data.pop('cnas_coverage')
+        maps_url = validated_data.pop('maps_url', '')
         validated_data['role'] = 'doctor'
         validated_data['verification_status'] = 'pending'
-        validated_data['is_active'] = False  
+        validated_data['is_active'] = False
         user = super().create(validated_data)
         doctor_profile = Doctor.objects.create(
             user=user,
@@ -149,7 +176,8 @@ class RegisterDoctorSerializer(RegisterUserSerializer):
             practice_authorization=practice_auth,
             experience_years=exp_years,
             clinic_name=clinic,
-            cnas_coverage=cnas
+            cnas_coverage=cnas,
+            maps_url=maps_url,
         )
 
         # Handle Multiple Diplomas
@@ -196,23 +224,25 @@ class RegisterPharmacistSerializer(RegisterUserSerializer):
     agreement_number = serializers.CharField(write_only=True)
     agreement_scan = serializers.FileField(write_only=True)
     registre_commerce = serializers.FileField(write_only=True)
-    
+    maps_url = serializers.URLField(write_only=True, required=False, allow_blank=True, default='')
 
     class Meta(RegisterUserSerializer.Meta):
         fields = RegisterUserSerializer.Meta.fields + [
             'order_registration_number',
-            'name', 'agreement_number', 'agreement_scan', 'registre_commerce', 'cnas_coverage',
+            'name', 'agreement_number', 'agreement_scan', 'registre_commerce', 'cnas_coverage', 'maps_url',
         ]
 
     @transaction.atomic
     def create(self, validated_data):
         order_reg_num = validated_data.pop('order_registration_number')
         cnas = validated_data.pop('cnas_coverage')
+        maps_url = validated_data.pop('maps_url', '')
         pharmacy_data = {
             'name': validated_data.pop('name'),
             'agreement_number': validated_data.pop('agreement_number'),
             'agreement_scan': validated_data.pop('agreement_scan'),
             'registre_commerce': validated_data.pop('registre_commerce'),
+            'maps_url': maps_url,
         }
 
         validated_data['role'] = 'pharmacist'
@@ -231,9 +261,10 @@ class RegisterCaretakerSerializer(RegisterUserSerializer):
     availability_area = serializers.CharField(write_only=True)
     experience_years = serializers.IntegerField(write_only=True)
     tarif_de_base = serializers.DecimalField(max_digits=10, decimal_places=2, write_only=True)
+    maps_url = serializers.URLField(write_only=True, required=False, allow_blank=True, default='')
 
     class Meta(RegisterUserSerializer.Meta):
-        fields = RegisterUserSerializer.Meta.fields + ['criminal_record_scan','availability_area', 'experience_years', 'tarif_de_base']
+        fields = RegisterUserSerializer.Meta.fields + ['criminal_record_scan', 'availability_area', 'experience_years', 'tarif_de_base', 'maps_url']
 
     @transaction.atomic
     def create(self, validated_data):
@@ -241,17 +272,19 @@ class RegisterCaretakerSerializer(RegisterUserSerializer):
         availability_area = validated_data.pop('availability_area')
         experience_years = validated_data.pop('experience_years')
         tarif_de_base = validated_data.pop('tarif_de_base')
+        maps_url = validated_data.pop('maps_url', '')
         validated_data['role'] = 'caretaker'
         validated_data['verification_status'] = 'pending'
         validated_data['is_active'] = False
-        
+
         user = super().create(validated_data)
         caretaker_profile = Caretaker.objects.create(
             user=user,
             criminal_record_scan=criminal_record_scan,
             availability_area=availability_area,
             experience_years=experience_years,
-            tarif_de_base=tarif_de_base
+            tarif_de_base=tarif_de_base,
+            maps_url=maps_url,
         )
 
         # Handle Multiple Diplomas
@@ -383,6 +416,84 @@ class PatientUnifiedSerializer(BaseUserUpdateSerializer):
         return instance
 
 
+class DoctorUnifiedSerializer(BaseUserUpdateSerializer):
+    specialty = serializers.CharField(source='doctor_profile.specialty', read_only=True)
+    order_number = serializers.CharField(source='doctor_profile.order_number', read_only=True)
+    clinic_name = serializers.CharField(source='doctor_profile.clinic_name', read_only=True)
+    cnas_coverage = serializers.BooleanField(source='doctor_profile.cnas_coverage', read_only=True)
+    maps_url = serializers.URLField(source='doctor_profile.maps_url', required=False, allow_blank=True)
+
+    class Meta(BaseUserUpdateSerializer.Meta):
+        fields = BaseUserUpdateSerializer.Meta.fields + [
+            'specialty', 'order_number', 'clinic_name', 'cnas_coverage', 'maps_url'
+        ]
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('doctor_profile', None)
+        instance = super().update(instance, validated_data)
+
+        if profile_data:
+            doctor_profile = getattr(instance, 'doctor_profile', None)
+            if doctor_profile:
+                for attr, value in profile_data.items():
+                    setattr(doctor_profile, attr, value)
+                doctor_profile.save()
+
+        return instance
+
+
+class PharmacistUnifiedSerializer(BaseUserUpdateSerializer):
+    order_registration_number = serializers.CharField(source='pharmacist_profile.order_registration_number', read_only=True)
+    cnas_coverage = serializers.BooleanField(source='pharmacist_profile.cnas_coverage', read_only=True)
+    pharmacy_name = serializers.CharField(source='pharmacist_profile.pharmacy.name', read_only=True)
+    maps_url = serializers.URLField(source='pharmacist_profile.pharmacy.maps_url', required=False, allow_blank=True)
+
+    class Meta(BaseUserUpdateSerializer.Meta):
+        fields = BaseUserUpdateSerializer.Meta.fields + [
+            'order_registration_number', 'cnas_coverage', 'pharmacy_name', 'maps_url'
+        ]
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('pharmacist_profile', None)
+        instance = super().update(instance, validated_data)
+
+        if profile_data:
+            pharmacist_profile = getattr(instance, 'pharmacist_profile', None)
+            if pharmacist_profile and hasattr(pharmacist_profile, 'pharmacy'):
+                pharmacy = pharmacist_profile.pharmacy
+                pharmacy_data = profile_data.get('pharmacy', {}) if isinstance(profile_data, dict) else {}
+                for attr, value in pharmacy_data.items():
+                    setattr(pharmacy, attr, value)
+                pharmacy.save()
+
+        return instance
+
+
+class CaretakerUnifiedSerializer(BaseUserUpdateSerializer):
+    availability_area = serializers.CharField(source='caretaker_profile.availability_area', required=False, allow_blank=True)
+    tarif_de_base = serializers.DecimalField(source='caretaker_profile.tarif_de_base', required=False, max_digits=10, decimal_places=2)
+    maps_url = serializers.URLField(source='caretaker_profile.maps_url', required=False, allow_blank=True)
+    experience_years = serializers.IntegerField(source='caretaker_profile.experience_years', required=False)
+
+    class Meta(BaseUserUpdateSerializer.Meta):
+        fields = BaseUserUpdateSerializer.Meta.fields + [
+            'availability_area', 'tarif_de_base', 'maps_url', 'experience_years'
+        ]
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('caretaker_profile', None)
+        instance = super().update(instance, validated_data)
+
+        if profile_data:
+            caretaker_profile = getattr(instance, 'caretaker_profile', None)
+            if caretaker_profile:
+                for attr, value in profile_data.items():
+                    setattr(caretaker_profile, attr, value)
+                caretaker_profile.save()
+
+        return instance
+
+
 class ProfileUpdateRequestSerializer(serializers.ModelSerializer):
     user_email = serializers.ReadOnlyField(source='user.email')
     user_full_name = serializers.ReadOnlyField(source='user.get_full_name')
@@ -396,4 +507,4 @@ class ProfileUpdateRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'admin_notes']
 
     def get_full_name_requested(self, obj):
-        return f"{obj.new_first_name} {obj.new_last_name}"
+        return f"{obj.new_first_name} {obj.new_last_name}"

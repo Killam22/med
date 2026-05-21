@@ -138,6 +138,14 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
             )
         order.status = PharmacyOrder.Status.CANCELLED
         order.save()
+        if order.pharmacist:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=order.pharmacist,
+                title="Commande annulée par le patient",
+                message=f"{request.user.get_full_name()} a annulé sa commande.",
+                notification_type=Notification.NotificationType.PHARMACY
+            )
         return Response({'detail': 'Commande annulée.'})
 
     @action(detail=False, methods=['get'], url_path='incoming')
@@ -182,6 +190,9 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
         updated_order = serializer.save()
 
         from notifications.models import Notification
+        pharmacist_name = request.user.get_full_name() or "Le pharmacien"
+        note = updated_order.pharmacist_note or ""
+
         if updated_order.status == 'preparing':
             Notification.objects.create(
                 user=updated_order.patient,
@@ -201,6 +212,16 @@ class PharmacyOrderViewSet(viewsets.ModelViewSet):
                 user=updated_order.patient,
                 title="Commande délivrée",
                 message="Votre commande a été délivrée. Merci de votre confiance.",
+                notification_type=Notification.NotificationType.PHARMACY
+            )
+        elif updated_order.status == 'cancelled':
+            msg = f"{pharmacist_name} a refusé votre commande."
+            if note:
+                msg += f" Motif : {note}"
+            Notification.objects.create(
+                user=updated_order.patient,
+                title="Commande refusée",
+                message=msg,
                 notification_type=Notification.NotificationType.PHARMACY
             )
 

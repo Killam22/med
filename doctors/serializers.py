@@ -113,12 +113,13 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name')
     specialty_display = serializers.CharField(source='get_specialty_display', read_only=True)
     available_slots = serializers.SerializerMethodField()
-    cnas_coverage = serializers.BooleanField(source='doctor.cnas_coverage', read_only=True)
+    cnas_coverage = serializers.BooleanField(read_only=True)
 
     gender = serializers.CharField(source='user.sex', required=False, allow_blank=True)
-    est_address = serializers.CharField(source='exercise.est_address', required=False, allow_blank=True)
-    est_city = serializers.CharField(source='exercise.est_city', required=False, allow_blank=True)
-    pro_phone = serializers.CharField(source='exercise.pro_phone', required=False, allow_blank=True)
+    est_address = serializers.SerializerMethodField()
+    est_city = serializers.SerializerMethodField()
+    pro_phone = serializers.SerializerMethodField()
+
     class Meta:
         model = Doctor
         fields = [
@@ -126,10 +127,22 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             'specialty', 'specialty_display', 'order_number',
             'gender',
             'clinic_name', 'est_address', 'est_city', 'pro_phone', 'bio',
-            'experience_years', 'consultation_fee', 
+            'experience_years', 'consultation_fee',
             'rating', 'total_reviews', 'languages',
-            'is_verified', 'available_slots', 'cnas_coverage',
+            'is_verified', 'available_slots', 'cnas_coverage', 'maps_url',
         ]
+
+    def get_est_address(self, obj):
+        exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()
+        return exercise.est_address if exercise else ""
+
+    def get_est_city(self, obj):
+        exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()
+        return exercise.est_city if exercise else ""
+
+    def get_pro_phone(self, obj):
+        exercise = obj.exercises.filter(is_main_location=True).first() or obj.exercises.first()
+        return exercise.pro_phone if exercise else ""
 
     def get_available_slots(self, obj):
         from django.utils import timezone

@@ -190,7 +190,7 @@ class QuickPrescriptionView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
     def post(self, request):
-        from datetime import timedelta
+        from datetime import timedelta, date
         from django.utils import timezone
         from consultations.models import Consultation
         from patients.models import Patient, ExternalPatient
@@ -205,12 +205,33 @@ class QuickPrescriptionView(APIView):
         if not items_data:
             return Response({'error': 'Au moins un médicament est requis.'}, status=400)
 
+        for i, it in enumerate(items_data):
+            name = (it.get('drug_name') or it.get('medication') or '').strip()
+            if not name:
+                return Response(
+                    {'error': f'Le nom du médicament est obligatoire (ligne {i + 1}).'},
+                    status=400,
+                )
+
         doctor = request.user.doctor_profile
         chief  = request.data.get('chief_complaint') or 'Ordonnance rapide'
         notes  = request.data.get('notes') or ''
         valid_until = request.data.get('valid_until')
         if not valid_until:
-            valid_until = (timezone.now().date() + timedelta(days=90)).isoformat()
+            valid_until = timezone.now().date() + timedelta(days=90)
+        elif isinstance(valid_until, str):
+            try:
+                valid_until = date.fromisoformat(valid_until)
+            except ValueError:
+                return Response(
+                    {'error': 'valid_until doit être une date au format YYYY-MM-DD.'},
+                    status=400,
+                )
+        elif not isinstance(valid_until, date):
+            return Response(
+                {'error': 'valid_until doit être une date.'},
+                status=400,
+            )
 
         patient          = None
         external_patient = None
@@ -242,7 +263,7 @@ class QuickPrescriptionView(APIView):
             valid_until=valid_until,
         )
 
-        from .models import PrescriptionItem, QRToken
+        from .models import PrescriptionItem
         for it in items_data:
             PrescriptionItem.objects.create(
                 prescription=prescription,
@@ -254,8 +275,6 @@ class QuickPrescriptionView(APIView):
                 instructions=it.get('instructions', ''),
                 quantity=int(it.get('quantity', 1)),
             )
-
-        QRToken.objects.create(prescription=prescription)
 
         # Notifier uniquement les patients avec un compte
         if patient:
