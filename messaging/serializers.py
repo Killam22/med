@@ -85,14 +85,42 @@ class ConversationSerializer(serializers.ModelSerializer):
 
 
 class UserReportSerializer(serializers.ModelSerializer):
-    reporter_name = serializers.CharField(source='reporter.get_full_name', read_only=True)
-    reporter_role = serializers.CharField(source='reporter.role', read_only=True)
-    reported_name = serializers.CharField(source='reported_user.get_full_name', read_only=True)
-    reported_role = serializers.CharField(source='reported_user.role', read_only=True)
+    reporter_name      = serializers.CharField(source='reporter.get_full_name', read_only=True)
+    reporter_role      = serializers.CharField(source='reporter.role', read_only=True)
+    reported_name      = serializers.CharField(source='reported_user.get_full_name', read_only=True)
+    reported_role      = serializers.CharField(source='reported_user.role', read_only=True)
+    reported_is_active = serializers.BooleanField(source='reported_user.is_active', read_only=True)
+
+    # Libellés FR (pratiques pour l'UI)
+    category_display      = serializers.CharField(source='get_category_display', read_only=True)
+    status_display        = serializers.CharField(source='get_status_display', read_only=True)
+    action_taken_display  = serializers.CharField(source='get_action_taken_display', read_only=True)
+
+    resolved_by_name = serializers.CharField(source='resolved_by.get_full_name', read_only=True)
+
+    # Nombre total de signalements ACTIFS reçus par le user signalé (récidive)
+    reported_user_report_count = serializers.SerializerMethodField()
 
     class Meta:
         model = UserReport
-        fields = ['id', 'reporter', 'reporter_name', 'reporter_role',
-                  'reported_user', 'reported_name', 'reported_role',
-                  'reason', 'status', 'created_at']
-        read_only_fields = ['reporter', 'status']
+        fields = [
+            'id',
+            'reporter', 'reporter_name', 'reporter_role',
+            'reported_user', 'reported_name', 'reported_role', 'reported_is_active',
+            'category', 'category_display',
+            'reason',
+            'status', 'status_display',
+            'action_taken', 'action_taken_display',
+            'admin_notes',
+            'resolved_by', 'resolved_by_name', 'resolved_at',
+            'reported_user_report_count',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'reporter', 'status', 'action_taken', 'admin_notes',
+            'resolved_by', 'resolved_at',
+        ]
+
+    def get_reported_user_report_count(self, obj):
+        """Combien de signalements (tous statuts) ce user a-t-il reçus en tout ?"""
+        return UserReport.objects.filter(reported_user=obj.reported_user).count()

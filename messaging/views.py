@@ -181,27 +181,97 @@ class BlockUserView(APIView):
 
 
 class ReportView(APIView):
+    """POST /api/chat/report/ — un utilisateur signale un autre user."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from django.utils import timezone
+        from datetime import timedelta
+
         reported_user_id = request.data.get('reported_user_id')
-        reason = request.data.get('reason', '')
+        reason   = (request.data.get('reason') or '').strip()
+        category = request.data.get('category') or 'other'
+
         if not reported_user_id or not reason:
             return Response(
                 {'detail': 'reported_user_id et reason sont requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if category not in dict(UserReport.CATEGORY_CHOICES):
+            category = 'other'
+
         try:
             reported = User.objects.get(id=reported_user_id)
         except User.DoesNotExist:
             return Response({'detail': 'Utilisateur introuvable.'}, status=status.HTTP_404_NOT_FOUND)
-        report = UserReport.objects.create(reporter=request.user, reported_user=reported, reason=reason)
+
+        # Anti auto-signalement
+        if reported.id == request.user.id:
+            return Response(
+                {'detail': "Vous ne pouvez pas vous signaler vous-même."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Anti-doublon : pas de second signalement pending vers le même user
+        # ni de signalement identique dans les dernières 24h.
+        if UserReport.objects.filter(
+            reporter=request.user, reported_user=reported, status='pending'
+        ).exists():
+            return Response(
+                {'detail': "Vous avez déjà un signalement en cours contre cet utilisateur."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        recent = UserReport.objects.filter(
+            reporter=request.user, reported_user=reported,
+            created_at__gte=timezone.now() - timedelta(hours=24),
+        ).exists()
+        if recent:
+            return Response(
+                {'detail': "Vous avez déjà signalé cet utilisateur dans les dernières 24h."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        report = UserReport.objects.create(
+            reporter=request.user,
+            reported_user=reported,
+            category=category,
+            reason=reason,
+        )
+
+        # Notifier les admins qu'un nouveau signalement arrive
+        try:
+            from notifications.models import Notification
+            from django.contrib.auth import get_user_model
+            U = get_user_model()
+            admins = U.objects.filter(role='admin', is_active=True)
+            Notification.objects.bulk_create([
+                Notification(
+                    user=admin,
+                    title="Nouveau signalement",
+                    message=(
+                        f"{request.user.get_full_name()} a signalé "
+                        f"{reported.get_full_name()} ({reported.email}) — "
+                        f"{dict(UserReport.CATEGORY_CHOICES).get(category, 'Autre')}."
+                    ),
+                    notification_type=Notification.NotificationType.SYSTEM,
+                )
+                for admin in admins
+            ])
+        except Exception:
+            pass  # ne bloque pas la création du signalement
+
         return Response(UserReportSerializer(report).data, status=status.HTTP_201_CREATED)
 
 
 class ReportViewSet(viewsets.ReadOnlyModelViewSet):
+    """GET liste + détail (admin uniquement) + action de modération."""
     serializer_class = UserReportSerializer
     permission_classes = [IsAuthenticated]
+
+    # Actions admin valides → comportement réel sur l'utilisateur signalé
+    VALID_ACTIONS = {'warn', 'suspend', 'dismiss'}
 
     def _is_admin(self, user):
         return user.is_staff or getattr(user, 'role', None) == 'admin'
@@ -209,22 +279,121 @@ class ReportViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         if not self._is_admin(self.request.user):
             return UserReport.objects.none()
-        return UserReport.objects.all().order_by('-created_at')
+        return UserReport.objects.select_related(
+            'reporter', 'reported_user', 'resolved_by'
+        ).order_by('-created_at')
 
     @action(detail=True, methods=['post'], url_path='action')
     def handle_action(self, request, pk=None):
+        """
+        POST /api/chat/reports/<id>/action/
+        Body: { "action": "warn" | "suspend" | "dismiss", "notes": "…" }
+
+        - warn    : avertit l'utilisateur signalé (notification in-app)
+        - suspend : désactive le compte (is_active=False) + notif
+        - dismiss : signalement classé sans suite
+
+        Dans les 3 cas, l'auteur du signalement est aussi notifié pour qu'il
+        sache que son report a bien été traité.
+        """
+        from django.utils import timezone
+        from notifications.models import Notification
+
         if not self._is_admin(request.user):
             return Response({'detail': 'Accès admin requis.'}, status=status.HTTP_403_FORBIDDEN)
+
         report = self.get_object()
-        action_type = request.data.get('action')
-        if action_type == 'resolve':
-            report.status = 'resolved'
-        elif action_type == 'dismiss':
-            report.status = 'dismissed'
-        else:
+        if report.status != 'pending':
             return Response(
-                {'detail': 'Action invalide. Utilisez "resolve" ou "dismiss".'},
+                {'detail': "Ce signalement a déjà été traité."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        action_type = (request.data.get('action') or '').strip().lower()
+        notes       = (request.data.get('notes') or '').strip()
+
+        # Compatibilité historique : 'resolve' = avertissement (l'ancien front utilise 'resolve')
+        if action_type == 'resolve':
+            action_type = 'warn'
+
+        if action_type not in self.VALID_ACTIONS:
+            return Response(
+                {'detail': f'Action invalide. Utilisez : {", ".join(sorted(self.VALID_ACTIONS))}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target = report.reported_user
+
+        # ── Exécution de l'action sur le user signalé ─────────────────────
+        if action_type == 'warn':
+            Notification.objects.create(
+                user=target,
+                title="Avertissement de la modération",
+                message=(
+                    f"Un signalement a été retenu à votre encontre. "
+                    f"Catégorie : {report.get_category_display()}. "
+                    + (f"Note de la modération : {notes}" if notes else "Veuillez respecter les règles de la plateforme.")
+                ),
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
+            report.action_taken = 'warn'
+            report.status       = 'resolved'
+
+        elif action_type == 'suspend':
+            target.is_active = False
+            target.save(update_fields=['is_active'])
+            Notification.objects.create(
+                user=target,
+                title="Compte suspendu",
+                message=(
+                    f"Votre compte a été suspendu suite à un signalement "
+                    f"({report.get_category_display()}). "
+                    + (f"Motif : {notes}" if notes else "Contactez le support pour plus d'informations.")
+                ),
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
+            report.action_taken = 'suspend'
+            report.status       = 'resolved'
+
+        elif action_type == 'dismiss':
+            report.action_taken = 'dismissed'
+            report.status       = 'dismissed'
+
+        # ── Métadonnées de traçabilité ─────────────────────────────────────
+        report.admin_notes = notes
+        report.resolved_by = request.user
+        report.resolved_at = timezone.now()
         report.save()
+
+        # ── Notification au signaleur ──────────────────────────────────────
+        try:
+            outcome_label = {
+                'warn':    "un avertissement a été adressé à la personne signalée",
+                'suspend': "le compte de la personne signalée a été suspendu",
+                'dismiss': "aucune action n'a été retenue après examen",
+            }[action_type]
+            Notification.objects.create(
+                user=report.reporter,
+                title="Votre signalement a été traité",
+                message=f"Suite à votre signalement, {outcome_label}. Merci de contribuer à la sécurité de la plateforme.",
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
+        except Exception:
+            pass
+
+        # ── Audit log applicatif ──────────────────────────────────────────
+        try:
+            from admin_panel.models import AuditLog
+            AuditLog.objects.create(
+                actor=request.user,
+                level='warning' if action_type == 'suspend' else 'info',
+                message=(
+                    f"Signalement #{report.id} → {action_type} sur "
+                    f"{target.email} (par {request.user.email})"
+                )[:255],
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except Exception:
+            pass
+
         return Response(UserReportSerializer(report).data)

@@ -47,18 +47,52 @@ class BlockedUser(models.Model):
 
 class UserReport(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'En attente'),
-        ('resolved', 'Résolu'),
+        ('pending',   'En attente'),
+        ('resolved',  'Résolu'),
         ('dismissed', 'Ignoré'),
     ]
-    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reports_made')
+
+    CATEGORY_CHOICES = [
+        ('harassment',     'Harcèlement / propos insultants'),
+        ('spam',           'Spam ou publicité'),
+        ('fraud',          'Tentative de fraude / arnaque'),
+        ('inappropriate',  'Contenu inapproprié'),
+        ('misinformation', 'Désinformation médicale'),
+        ('other',          'Autre'),
+    ]
+
+    ACTION_CHOICES = [
+        ('none',      'Aucune action'),
+        ('warn',      'Avertissement envoyé'),
+        ('suspend',   'Compte suspendu'),
+        ('dismissed', 'Signalement ignoré'),
+    ]
+
+    reporter      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reports_made')
     reported_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reports_received')
-    reason = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    created_at = models.DateTimeField(auto_now_add=True)
+    category      = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
+    reason        = models.TextField()
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # ── Modération ────────────────────────────────────────────────
+    action_taken  = models.CharField(max_length=20, choices=ACTION_CHOICES, default='none')
+    admin_notes   = models.TextField(blank=True, help_text="Notes internes de l'admin ayant traité le signalement")
+    resolved_by   = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reports_resolved',
+    )
+    resolved_at   = models.DateTimeField(null=True, blank=True)
+
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
 
     class Meta:
         app_label = 'messaging'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['reported_user', 'status']),
+        ]
 
     def __str__(self):
         return f"Signalement de {self.reporter.email} contre {self.reported_user.email}"
