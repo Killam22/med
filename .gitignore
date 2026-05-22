@@ -1,42 +1,72 @@
-# Dependencies
+# ── Dependencies ────────────────────────────────────────────────────────────
 node_modules/
 
-# Build outputs
+# ── Build outputs ───────────────────────────────────────────────────────────
 dist/
 build/
 .next/
 
-# Environment variables
+# ── Environment / secrets ───────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
+# Templates à committer
+!.env.example
+!.env.production.example
 
-# Logs
+# ── Logs ────────────────────────────────────────────────────────────────────
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
-# Editor / OS files
+# ── Editor / OS ─────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Vite cache
+# ── Vite ────────────────────────────────────────────────────────────────────
 .vite/
-# Backend Django
-backend/env/
-backend/venv/
+
+# ── Python / Django ─────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
-backend/db.sqlite3
-backend/*.log
-backend/*/migrations/*.py
-!backend/*/migrations/__init__.py
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.sqlite3
+db.sqlite3
 
-# Datasets
+# ── Uploads utilisateurs (médicaux, sensibles, jamais en repo !) ────────────
+media/
+!media/.gitkeep
+
+# ── Bot IA — base vectorielle ChromaDB (régénérable, énorme : ~280 MB) ─────
+chroma_db/
+
+# ── Dataset d'entraînement (énorme : ~770 MB, régénérable via build_dataset.py)
+# On garde les SCRIPTS dans training/ (utiles pour le bot IA) mais on ignore les
+# fichiers de données générés (parquet, csv, chroma…).
+dataset/
+training/data/
+training/*.parquet
+training/*.csv
 raw/
 processed/
-training/data/
 *.parquet
 *.csv
+
+# ── Migrations Django : on garde le __init__.py uniquement ──────────────────
+# (commenté car ton équipe partage les migrations — décommenter si tu veux les ignorer)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# ── Fichiers temporaires / de test ──────────────────────────────────────────
+dummy.jpg
+*.tmp
+*.bak

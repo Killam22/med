@@ -71,7 +71,31 @@ class CareRequestViewSet(viewsets.ModelViewSet):
         return CareRequest.objects.none()
 
     def perform_create(self, serializer):
-        care_request = serializer.save(patient=self.request.user)
+        from rest_framework.exceptions import ValidationError
+
+        user      = self.request.user
+        caretaker = serializer.validated_data['caretaker']
+
+        # SÉCURITÉ : un patient ne peut avoir qu'une seule demande active à la fois
+        # (pending ou accepted). Empêche les doublons silencieux côté serveur.
+        existing_same = CareRequest.objects.filter(
+            patient=user, caretaker=caretaker, status__in=['pending', 'accepted']
+        ).exists()
+        if existing_same:
+            raise ValidationError(
+                "Vous avez déjà une demande active avec ce garde-malade."
+            )
+
+        existing_other = CareRequest.objects.filter(
+            patient=user, status__in=['pending', 'accepted']
+        ).exists()
+        if existing_other:
+            raise ValidationError(
+                "Vous avez déjà une demande active avec un autre garde-malade. "
+                "Annulez-la avant d'en envoyer une nouvelle."
+            )
+
+        care_request = serializer.save(patient=user)
         from notifications.models import Notification
         Notification.objects.create(
             user=care_request.caretaker.user,
@@ -79,6 +103,44 @@ class CareRequestViewSet(viewsets.ModelViewSet):
             message=f"Nouvelle demande de prise en charge reçue de {care_request.patient.get_full_name()}.",
             notification_type=Notification.NotificationType.CARETAKER
         )
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Annulation par le patient de sa propre demande.
+        Conserve l'historique en passant le statut à CANCELLED plutôt qu'une suppression.
+        """
+        care_request = self.get_object()
+        if care_request.patient != request.user:
+            return Response({"error": "Non autorisé."}, status=status.HTTP_403_FORBIDDEN)
+        if care_request.status not in ['pending', 'accepted']:
+            return Response(
+                {"error": "Seules les demandes en attente ou acceptées peuvent être annulées."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        was_accepted = (care_request.status == 'accepted')
+        care_request.status = CareRequest.Status.CANCELLED
+        care_request.save(update_fields=['status', 'updated_at'])
+
+        # Nettoie le plan médicamenteux et les tâches associées : si la patient
+        # recrée une demande plus tard, le GM repartira d'une feuille blanche
+        # plutôt que d'éditer un schedule orphelin que le patient ne verrait pas.
+        from .models import MedicationSchedule, CaretakerTask
+        MedicationSchedule.objects.filter(care_request=care_request).delete()
+        CaretakerTask.objects.filter(care_request=care_request).delete()
+
+        # Notifier le garde-malade
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=care_request.caretaker.user,
+            title="Demande annulée" if not was_accepted else "Fin de prise en charge",
+            message=(
+                f"{care_request.patient.get_full_name()} a annulé sa demande."
+                if not was_accepted
+                else f"{care_request.patient.get_full_name()} a mis fin à la prise en charge."
+            ),
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
+        return Response({"detail": "Demande annulée."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def respond_to_offer(self, request, pk=None):
@@ -121,6 +183,11 @@ class CareRequestViewSet(viewsets.ModelViewSet):
 
         care_request.status = CareRequest.Status.CANCELLED
         care_request.save()
+
+        # Cleanup : pas de schedule/tasks orphelins pour la prochaine mission
+        from .models import MedicationSchedule, CaretakerTask
+        MedicationSchedule.objects.filter(care_request=care_request).delete()
+        CaretakerTask.objects.filter(care_request=care_request).delete()
 
         from notifications.models import Notification
         reason = request.data.get('reason', '')
@@ -227,11 +294,14 @@ class MedicationScheduleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'caretaker':
+            # Le GM ne voit que les schedules dont la demande de soins est
+            # encore active. Sinon il pouvait éditer un plan orphelin (CR
+            # cancelled/completed) que le patient ne voyait jamais.
             return MedicationSchedule.objects.filter(
-                care_request__caretaker__user=user
+                care_request__caretaker__user=user,
+                care_request__status='accepted',
             ).select_related('care_request__patient')
         if user.role == 'patient':
-            # Le patient ne voit que son propre plan, uniquement si la demande est acceptée
             return MedicationSchedule.objects.filter(
                 care_request__patient=user,
                 care_request__status='accepted',
@@ -250,7 +320,37 @@ class MedicationScheduleViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import ValidationError
             raise ValidationError("La demande doit être acceptée avant de créer un plan.")
         medications = self.request.data.get('medications', {'morning': [], 'afternoon': [], 'evening': []})
-        serializer.save(medications=medications)
+        schedule = serializer.save(medications=medications)
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=care_request.patient,
+            title="Plan médicamenteux créé",
+            message=f"Votre garde-malade a créé votre plan de médicaments.",
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
+        return schedule
+
+    def perform_update(self, serializer):
+        schedule = serializer.save()
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=schedule.care_request.patient,
+            title="Plan médicamenteux mis à jour",
+            message="Votre plan de médicaments a été modifié par votre garde-malade.",
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
+        return schedule
+
+    def perform_destroy(self, instance):
+        patient = instance.care_request.patient
+        super().perform_destroy(instance)
+        from notifications.models import Notification
+        Notification.objects.create(
+            user=patient,
+            title="Plan médicamenteux supprimé",
+            message="Votre garde-malade a supprimé votre plan de médicaments.",
+            notification_type=Notification.NotificationType.CARETAKER,
+        )
 
 class CaretakerReviewViewSet(viewsets.ModelViewSet):
     """

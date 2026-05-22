@@ -1,10 +1,14 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from notifications.models import Notification
 
 User = get_user_model()
 
+
+# Workaround bug Python 3.14 + Django template rendering en test
+@override_settings(DEBUG=False, LOGGING_CONFIG=None)
 class NotificationTests(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -44,8 +48,9 @@ class NotificationTests(APITestCase):
         response = self.client.get('/api/notifications/', format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Assuming pagination or flat list
-        results = response.data.get('results', response.data)
+        # Le endpoint renvoie une liste simple (sans pagination)
+        data = response.data
+        results = data['results'] if isinstance(data, dict) and 'results' in data else data
         self.assertEqual(len(results), 2)
         
         # S'assurer que la notification de l'user 2 n'est pas présente

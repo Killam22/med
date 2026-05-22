@@ -1,15 +1,24 @@
-﻿from rest_framework.test import APITestCase
+﻿from unittest.mock import patch
+
+from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from admin_panel.models import AuditLog
 from notifications.models import Notification
-from doctors.models import Doctor, DoctorQualification
+from doctors.models import Doctor, DoctorQualification, Diploma
 from pharmacy.models import Pharmacist, PharmacistQualification
 from caretaker.models import Caretaker, CaretakerCertificate
 
 User = get_user_model()
 
+
+# Bug Python 3.14 + Django : si une vue rend un template (email de bienvenue),
+# Django.test.utils.instrumented_test_render plante avec
+# "AttributeError: 'super' object has no attribute 'dicts'".
+# Désactiver DEBUG et LOGGING_CONFIG contourne le problème.
+@override_settings(DEBUG=False, LOGGING_CONFIG=None)
 class AdminPanelTests(APITestCase):
     def setUp(self):
         # Création d'un admin
@@ -55,13 +64,15 @@ class AdminPanelTests(APITestCase):
             order_number='DOC123',
             practice_authorization=SimpleUploadedFile('auth.pdf', b'content', content_type='application/pdf')
         )
-        DoctorQualification.objects.create(
+        # Le sérialiseur admin lit les diplômes via `profile.diplomas` (modèle Diploma),
+        # pas DoctorQualification. On crée donc un Diploma pour ce test.
+        from datetime import date
+        Diploma.objects.create(
             doctor=self.doctor_profile,
             title='Doctorat',
             institution='Faculté',
-            graduation_year=2020,
-            degree_type='Etat',
-            scan=SimpleUploadedFile('diploma.pdf', b'content', content_type='application/pdf')
+            date_obtained=date(2020, 6, 15),
+            file=SimpleUploadedFile('diploma.pdf', b'content', content_type='application/pdf'),
         )
 
     def test_admin_permission_required(self):
@@ -88,13 +99,15 @@ class AdminPanelTests(APITestCase):
         self.assertIn("Autorisation d'exercer", titles)
         self.assertTrue(any("Diplôme" in t for t in titles))
 
-    def test_verify_professional_action(self):
+    @patch('users.utils.send_welcome_email')
+    def test_verify_professional_action(self, mock_send):
         """Vérifie le bouton 'Approuver'"""
         self.client.force_authenticate(user=self.admin_user)
         url = f'/api/admin/users/{self.doctor_user.id}/verify_professional/'
-        
+
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send.assert_called_once()
         
         # Vérification BDD
         self.doctor_user.refresh_from_db()

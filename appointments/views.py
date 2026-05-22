@@ -12,6 +12,22 @@ from rest_framework.exceptions import ValidationError
 from patients.models import Patient
 from doctors.models import Doctor
 from .models import Appointment, Review
+
+
+def _audit(actor, level, message, request=None):
+    """Helper : enregistre un événement dans l'AuditLog applicatif (best-effort)."""
+    try:
+        from admin_panel.models import AuditLog
+        AuditLog.objects.create(
+            actor=actor,
+            level=level,
+            message=message[:255],
+            ip_address=(request.META.get('REMOTE_ADDR') if request else None),
+        )
+    except Exception:
+        # L'audit ne doit jamais bloquer une action critique
+        import logging
+        logging.getLogger(__name__).exception("audit log write failed")
 from .serializers import (
     AppointmentSerializer,
     AppointmentDoctorSerializer,
@@ -496,6 +512,14 @@ class PatientRecordView(APIView):
             for d in docs
         ]
 
+        # AUDIT : consultation du dossier médical d'un patient par un médecin
+        _audit(
+            actor=request.user,
+            level='info',
+            message=f"Dossier consulté : Dr.{request.user.get_full_name()} → patient #{patient.id} ({patient.user.get_full_name()})",
+            request=request,
+        )
+
         # Ordonnances via consultations du patient
         prescriptions_qs = Prescription.objects.filter(
             consultation__patient=patient
@@ -587,6 +611,13 @@ class DoctorAddDiagnosisView(APIView):
             notification_type=Notification.NotificationType.SYSTEM,
         )
 
+        _audit(
+            actor=request.user,
+            level='success',
+            message=f"Diagnostic ajouté au dossier : Dr.{request.user.get_full_name()} → patient #{patient.id} : '{condition[:80]}'",
+            request=request,
+        )
+
         return Response(
             {"detail": "Diagnostic ajouté.", "id": antecedent.pk},
             status=status.HTTP_201_CREATED,
@@ -657,6 +688,13 @@ class DoctorAddTreatmentView(APIView):
             title="Dossier médical mis à jour",
             message=f"Le Dr. {doctor.user.last_name} a ajouté un traitement dans votre dossier médical.",
             notification_type=Notification.NotificationType.SYSTEM,
+        )
+
+        _audit(
+            actor=request.user,
+            level='success',
+            message=f"Traitement ajouté au dossier : Dr.{request.user.get_full_name()} → patient #{patient.id} : '{medication_name[:80]}'",
+            request=request,
         )
 
         return Response(

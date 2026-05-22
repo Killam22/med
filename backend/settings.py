@@ -139,13 +139,16 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
+    # Limites globales : volontairement larges pour ne pas gêner l'usage normal.
+    # Les vraies protections anti-abus sont sur les scopes ciblés ci-dessous
+    # (login, otp_send, otp_verify, diagnosis).
     'DEFAULT_THROTTLE_RATES': {
-        'anon':       '200/hour',
-        'user':       '5000/hour',
-        'login':      '5/minute',
-        'otp_send':   '5/minute',
-        'otp_verify': '10/minute',   # ← brute-force OTP reset
-        'diagnosis':  '50/day',
+        'anon':       '1000/hour',     # navigation publique (landing, login, register)
+        'user':       '20000/hour',    # utilisateur connecté — polling + interactions normales
+        'login':      '10/minute',     # anti brute-force mot de passe
+        'otp_send':   '5/minute',      # anti spam d'OTP
+        'otp_verify': '20/minute',     # anti brute-force OTP (60 essais en 3 min max)
+        'diagnosis':  '50/day',        # protection coût Gemini
     }
 }
 

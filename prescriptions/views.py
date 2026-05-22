@@ -303,6 +303,19 @@ class QuickPrescriptionView(APIView):
                 notification_type=Notification.NotificationType.SYSTEM,
             )
 
+        # AUDIT : création d'ordonnance
+        try:
+            from admin_panel.models import AuditLog
+            target = patient.user.get_full_name() if patient else (external_patient.full_name if external_patient else "?")
+            AuditLog.objects.create(
+                actor=request.user,
+                level='success',
+                message=f"Ordonnance créée : Dr.{request.user.get_full_name()} → {target} ({len(items_data)} médicament(s))"[:255],
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except Exception:
+            pass
+
         return Response(PrescriptionSerializer(prescription).data, status=status.HTTP_201_CREATED)
 
 
@@ -335,6 +348,21 @@ class QRScanView(APIView):
             )
 
         prescription_serializer = PrescriptionSerializer(result['prescription'])
+
+        # AUDIT : scan d'une ordonnance par un pharmacien
+        try:
+            from admin_panel.models import AuditLog
+            rx = result['prescription']
+            patient_name = rx.consultation.patient.user.get_full_name() if rx.consultation.patient else "?"
+            AuditLog.objects.create(
+                actor=request.user,
+                level='info',
+                message=f"QR scanné : Pharmacien {request.user.get_full_name()} → ordonnance {str(rx.id)[:8]} (patient: {patient_name})"[:255],
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except Exception:
+            pass
+
         return Response({
             'message': 'QR code validé avec succès.',
             'prescription': prescription_serializer.data,

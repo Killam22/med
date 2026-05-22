@@ -92,8 +92,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
                             "url": _build_url(request, dip.file) if getattr(dip, 'file', None) else None,
                         })
 
-        except Exception as e:
-            print(f"[AdminUserSerializer] docs error for {obj.email}: {e}")
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "AdminUserSerializer docs error for user %s", obj.email
+            )
 
         return docs
 

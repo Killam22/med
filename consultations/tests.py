@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.utils import timezone
 from datetime import date, time
 from doctors.models import Doctor
@@ -10,6 +11,9 @@ from consultations.models import Consultation
 
 User = get_user_model()
 
+
+# Workaround bug Python 3.14 + Django template rendering en test
+@override_settings(DEBUG=False, LOGGING_CONFIG=None)
 class ConsultationAPITests(APITestCase):
     def setUp(self):
         # 1. Setup Users & Profiles
@@ -75,19 +79,21 @@ class ConsultationAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_consultation_list_filtering(self):
-        # Create a consultation
+        # NOTE : le queryset patient ne renvoie que les consultations terminées
+        # (status=COMPLETED) — sécurité. On force le statut pour le test.
         Consultation.objects.create(
             doctor=self.doctor,
             patient=self.patient,
             chief_complaint="C1",
-            consulted_at=timezone.now()
+            consulted_at=timezone.now(),
+            status=Consultation.Status.COMPLETED,
         )
-        # Create another for other patient
         Consultation.objects.create(
             doctor=self.doctor,
             patient=self.other_patient,
             chief_complaint="C2",
-            consulted_at=timezone.now()
+            consulted_at=timezone.now(),
+            status=Consultation.Status.COMPLETED,
         )
 
         # Doctor sees both

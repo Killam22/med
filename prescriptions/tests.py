@@ -9,6 +9,7 @@ from patients.models import Patient
 from consultations.models import Consultation
 from prescriptions.models import Prescription, PrescriptionItem, QRToken
 from medications.models import Medication
+from appointments.models import Appointment
 
 User = get_user_model()
 
@@ -40,7 +41,20 @@ class PrescriptionAPITests(APITestCase):
             consulted_at=timezone.now()
         )
 
-        # 3. Setup Medication
+        # 3. RDV — nécessaire depuis la vérif "lien thérapeutique" sur
+        #    QuickPrescriptionView (le médecin ne peut pas prescrire à un
+        #    patient avec qui il n'a aucun rendez-vous).
+        Appointment.objects.create(
+            doctor=self.doctor,
+            patient=self.patient,
+            date=date.today() - timedelta(days=1),
+            start_time=time(10, 0),
+            end_time=time(10, 30),
+            status='completed',
+            motif="Consultation initiale",
+        )
+
+        # 4. Setup Medication
         self.med = Medication.objects.create(name='Vitamin C', molecule='Ascorbic Acid', price_dzd=500)
 
     def test_doctor_can_create_prescription(self):
@@ -114,11 +128,11 @@ class PrescriptionAPITests(APITestCase):
 
         self.client.force_authenticate(user=self.pharma_user)
         data = {"token": qr.token}
-        response = self.client.post('/api/prescriptions/prescriptions/scan/', data, format='json')
+        response = self.client.post('/api/prescriptions/scan/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['prescription']['id'], str(rx.id))
 
     def test_unauthorized_scan(self):
         self.client.force_authenticate(user=self.pat_user)
-        response = self.client.post('/api/prescriptions/prescriptions/scan/', {"token": "dummy"})
+        response = self.client.post('/api/prescriptions/scan/', {"token": "dummy"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
