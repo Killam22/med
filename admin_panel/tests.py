@@ -121,12 +121,13 @@ class AdminPanelTests(APITestCase):
         # Vérification AuditLog
         self.assertTrue(AuditLog.objects.filter(level='success', message__icontains='approuvé').exists())
 
-    def test_reject_professional_action(self):
+    @patch('users.utils.send_rejection_email')
+    def test_reject_professional_action(self, mock_send):
         """Vérifie le bouton 'Rejeter' avec un motif personnalisé"""
         self.client.force_authenticate(user=self.admin_user)
         url = f'/api/admin/users/{self.doctor_user.id}/reject_professional/'
         data = {'reason': 'Diplôme flou'}
-        
+
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         

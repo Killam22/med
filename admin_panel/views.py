@@ -150,6 +150,9 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         reason = request.data.get('reason', 'Dossier incomplet ou non valide.')
         user.verification_status = 'rejected'
+        # Attribut éphémère lu par le signal `notify_verification_status` pour
+        # injecter le motif réel dans l'email envoyé au user rejeté.
+        user._rejection_reason = reason
         user.save()
 
         # Désynchronisation du booléen sur le profil
@@ -163,15 +166,13 @@ class AdminUserManagementViewSet(viewsets.ModelViewSet):
             user.caretaker_profile.is_verified = False
             user.caretaker_profile.save()
 
-        Notification.objects.create(
-            user=user,
-            title="Validation refusée",
-            message=f"Votre inscription n'a pas pu être validée. Motif : {reason}",
-            notification_type=Notification.NotificationType.SYSTEM
-        )
+        # Notification + email sont déclenchés par le signal `notify_verification_status`
+        # (notifications/signals.py) — pas besoin de les créer ici, ça éviterait
+        # le doublon. On garde juste l'audit log et le message de retour.
+
         create_audit_log(f"Inscription rejetée pour {user.email}", AuditLog.Level.WARNING, request)
 
-        return Response({"status": "Utilisateur rejeté. Notification envoyée."})
+        return Response({"status": "Utilisateur rejeté. Notification + email envoyés."})
 
     @action(detail=True, methods=['post'])
     def toggle_suspend(self, request, pk=None):

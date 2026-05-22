@@ -22,27 +22,11 @@ User = get_user_model()
 # ─────────────────────────────────────────────────────────────
 # HELPER — store old value before save so we can detect changes
 # ─────────────────────────────────────────────────────────────
-@receiver(pre_save, sender='pharmacists.PharmacyOrder')
-def cache_old_order_status(sender, instance, **kwargs):
-    """Store the previous status before the save so post_save can compare."""
-    if instance.pk:
-        try:
-            instance._old_status = sender.objects.get(pk=instance.pk).status
-        except sender.DoesNotExist:
-            instance._old_status = None
-    else:
-        instance._old_status = None
-
-
-@receiver(pre_save, sender='caretakers.CareRequest')
-def cache_old_care_request_status(sender, instance, **kwargs):
-    if instance.pk:
-        try:
-            instance._old_status = sender.objects.get(pk=instance.pk).status
-        except sender.DoesNotExist:
-            instance._old_status = None
-    else:
-        instance._old_status = None
+# NOTE : les signaux PharmacyOrder + CareRequest sont volontairement déconnectés.
+# Les vues correspondantes (pharmacy/views.py, caretaker/views.py) créent déjà
+# leurs notifications. Les ré-activer provoquerait un doublon de notif.
+# Si on veut les rétablir un jour : décommenter @receiver et retirer la création
+# manuelle dans les vues. Pour l'instant, on garde le code en réserve.
 
 
 @receiver(pre_save, sender=User)
@@ -59,7 +43,7 @@ def cache_old_verification_status(sender, instance, **kwargs):
 # ─────────────────────────────────────────────────────────────
 # 1. PHARMACY ORDER — notify patient on every status change
 # ─────────────────────────────────────────────────────────────
-@receiver(post_save, sender='pharmacists.PharmacyOrder')
+# @receiver(post_save, sender='pharmacy.PharmacyOrder')  # désactivé — voir note plus haut
 def notify_pharmacy_order_status(sender, instance, created, **kwargs):
 
     # Notify pharmacist when a NEW order arrives
@@ -108,7 +92,7 @@ def notify_pharmacy_order_status(sender, instance, created, **kwargs):
 # ─────────────────────────────────────────────────────────────
 # 2. CARE REQUEST — notify both patient and caretaker
 # ─────────────────────────────────────────────────────────────
-@receiver(post_save, sender='caretakers.CareRequest')
+# @receiver(post_save, sender='caretaker.CareRequest')  # désactivé — voir note plus haut
 def notify_care_request_status(sender, instance, created, **kwargs):
 
     # Notify caretaker when a NEW request arrives
@@ -180,9 +164,24 @@ def notify_verification_status(sender, instance, created, **kwargs):
         )
 
     elif instance.verification_status == 'rejected':
+        reason = getattr(instance, '_rejection_reason', '') or ''
+        notif_msg = (
+            f"Votre inscription n'a pas pu être validée. Motif : {reason}"
+            if reason
+            else "Votre demande de vérification a été refusée. Veuillez contacter le support."
+        )
         send_notification(
             user=instance,
             title="Vérification refusée",
-            message="Votre demande de vérification a été refusée. Veuillez contacter le support.",
+            message=notif_msg,
             notif_type='system'
         )
+        # Envoi de l'email de rejet (best-effort)
+        try:
+            from users.utils import send_rejection_email
+            send_rejection_email(instance, reason=reason)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Échec envoi email de rejet (signal) à %s", instance.email
+            )

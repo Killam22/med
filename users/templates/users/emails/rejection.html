@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Healy — Inscription non validée</title>
+</head>
+<body style="margin:0;padding:0;background:#F5F7FB;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F7FB;padding:36px 20px 60px;">
+  <tr><td align="center">
+  <table width="500" cellpadding="0" cellspacing="0" style="max-width:500px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E4EAF5;box-shadow:0 4px 24px rgba(57,88,134,0.14);">
+
+    <!-- HEADER -->
+    <tr><td style="background:linear-gradient(145deg,#7A2E2E 0%,#A33B3B 55%,#E05555 100%);padding:36px 32px 32px;text-align:center;">
+      <!-- Brand -->
+      <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-bottom:22px;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td style="background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.3);border-radius:9px;width:34px;height:34px;text-align:center;vertical-align:middle;">
+            <span style="color:#fff;font-size:18px;font-weight:700;">+</span>
+          </td>
+          <td style="padding-left:10px;font-size:18px;font-weight:700;color:#fff;letter-spacing:0.02em;">Healy</td>
+        </tr></table>
+      </td></tr></table>
+      <!-- Icon -->
+      <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.14);border:2px solid rgba(255,255,255,0.28);display:inline-flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:18px;line-height:72px;">⚠️</div>
+      <div style="font-size:20px;font-weight:700;color:#fff;line-height:1.3;">Inscription non validée</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.82);margin-top:5px;">Votre dossier n'a pas pu être approuvé</div>
+    </td></tr>
+
+    <!-- BODY -->
+    <tr><td style="padding:32px 32px 24px;color:#0D1B2E;">
+      <p style="margin:0 0 14px;font-size:15px;font-weight:600;">
+        Bonjour {{ prenom }} {{ nom }},
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#5A6E8A;">
+        Nous vous remercions d'avoir soumis votre demande d'inscription en tant que
+        <strong style="color:#0D1B2E;">{{ role_label }}</strong> sur la plateforme Healy.
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#5A6E8A;">
+        Après examen attentif par notre équipe administrative, votre dossier
+        <strong style="color:#A33B3B;">n'a pas pu être validé en l'état</strong>.
+      </p>
+
+      <!-- Motif -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 22px;background:#FDECEC;border:1px solid rgba(224,85,85,0.25);border-radius:12px;">
+        <tr><td style="padding:16px 18px;">
+          <div style="font-size:11px;font-weight:700;color:#A33B3B;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">
+            Motif du refus
+          </div>
+          <div style="font-size:14px;color:#0D1B2E;line-height:1.55;">
+            {{ reason }}
+          </div>
+        </td></tr>
+      </table>
+
+      <!-- Que faire ? -->
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0D1B2E;">
+        Que pouvez-vous faire ?
+      </p>
+      <ul style="margin:0 0 22px;padding-left:20px;font-size:13px;line-height:1.7;color:#5A6E8A;">
+        <li>Vérifier que vos documents (pièce d'identité, diplôme, autorisation) sont lisibles et à jour.</li>
+        <li>Soumettre une nouvelle demande d'inscription corrigée.</li>
+        <li>Contacter notre support si vous avez besoin d'explications complémentaires.</li>
+      </ul>
+
+      <!-- CTA support -->
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td align="center">
+          <a href="mailto:support@healy.dz?subject=Demande%20d'information%20-%20Dossier%20rejet%C3%A9"
+             style="display:inline-block;padding:13px 28px;background:linear-gradient(135deg,#304B71,#6492C9);color:#ffffff;text-decoration:none;border-radius:12px;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(48,75,113,0.3);">
+            Contacter le support
+          </a>
+        </td></tr>
+      </table>
+
+      <p style="margin:24px 0 0;font-size:12px;color:#9AACBE;text-align:center;line-height:1.5;">
+        Cet email vous a été envoyé à {{ email }}.<br>
+        Vous pouvez à tout moment soumettre une nouvelle demande sur
+        <a href="{{ app_url }}" style="color:#4A6FA5;text-decoration:none;">{{ app_url }}</a>.
+      </p>
+    </td></tr>
+
+    <!-- FOOTER -->
+    <tr><td style="background:#F8FAFC;border-top:1px solid #E4EAF5;padding:18px 32px;text-align:center;">
+      <p style="margin:0;font-size:11px;color:#9AACBE;line-height:1.6;">
+        © Healy — Plateforme médicale algérienne<br>
+        Ne répondez pas à cet email — utilisez le bouton « Contacter le support » ci-dessus.
+      </p>
+    </td></tr>
+
+  </table>
+  </td></tr>
+</table>
+</body>
+</html>

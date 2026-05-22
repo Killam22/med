@@ -85,6 +85,60 @@ ROLE_LABELS = {
 }
 
 
+def send_rejection_email(user, reason=""):
+    """
+    Envoie un email au professionnel dont l'inscription a été refusée par l'admin.
+    Format HTML + fallback texte. `reason` est le motif personnalisé saisi par l'admin
+    (sinon un motif générique est utilisé).
+
+    Returns:
+        True si l'envoi a réussi, False sinon (l'erreur est loggée).
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    role_label = ROLE_LABELS.get(user.role, user.role or 'Utilisateur')
+    final_reason = (reason or "Votre dossier ne satisfait pas l'ensemble des critères de validation.").strip()
+
+    context = {
+        'prenom': user.first_name or '',
+        'nom':    user.last_name or '',
+        'email':  user.email,
+        'role_label': role_label,
+        'reason':  final_reason,
+        'app_url': _APP_URL,
+    }
+
+    subject = "Healy — Votre inscription n'a pas été validée"
+    text_body = (
+        f"Bonjour {user.first_name} {user.last_name},\n\n"
+        f"Nous vous remercions d'avoir soumis votre demande d'inscription en tant que {role_label} sur Healy.\n\n"
+        f"Après examen, votre dossier n'a pas pu être validé en l'état.\n\n"
+        f"Motif : {final_reason}\n\n"
+        f"Vous pouvez soumettre une nouvelle demande corrigée ou contacter notre support à\n"
+        f"support@healy.dz pour plus d'informations.\n\n"
+        f"L'équipe Healy"
+    )
+
+    try:
+        html_body = render_to_string('users/emails/rejection.html', context)
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=_FROM_EMAIL,
+            to=[user.email],
+        )
+        msg.attach_alternative(html_body, 'text/html')
+        # fail_silently=False ici : on capture l'erreur dans le try/except au lieu de la
+        # masquer. Comme ça si SMTP plante on le voit dans les logs.
+        msg.send(fail_silently=False)
+        logger.info("Email de rejet envoyé à %s (motif: %s)", user.email, final_reason[:60])
+        return True
+    except Exception as e:
+        logger.error("Échec envoi email de rejet à %s : %s: %s", user.email, type(e).__name__, e)
+        return False
+
+
 def notify_admins_new_registration(user):
     """
     Crée une Notification pour chaque admin afin de signaler une nouvelle
