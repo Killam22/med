@@ -24,8 +24,19 @@ class Appointment(models.Model):
         ('completed',   'Terminé'),
     ]
 
-    patient    = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments')
+    patient    = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments', null=True, blank=True)
     doctor     = models.ForeignKey(Doctor,  on_delete=models.CASCADE, related_name='appointments')
+
+    # Walk-in / extérieur : lié à un ExternalPatient (profil persistant créé par le médecin).
+    # Utilisé quand la personne n'a pas de compte Healy.
+    external_patient = models.ForeignKey(
+        'patients.ExternalPatient', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='appointments',
+    )
+    # DEPRECATED : conservés pour compat des anciens enregistrements (avant le FK ExternalPatient).
+    # Toute création nouvelle doit passer par external_patient.
+    external_name  = models.CharField(max_length=200, blank=True)
+    external_phone = models.CharField(max_length=20,  blank=True)
 
     # The booked window — this IS the slot now
     date       = models.DateField(default=timezone.now)
@@ -89,10 +100,20 @@ class Appointment(models.Model):
         self.notes  = notes
         self.save(update_fields=['status', 'notes', 'updated_at'])
 
+    @property
+    def patient_display_name(self):
+        """Nom à afficher : patient lié, sinon ExternalPatient, sinon ancien external_name."""
+        if self.patient_id and self.patient and self.patient.user:
+            return self.patient.user.get_full_name() or f"Patient #{self.patient_id}"
+        if self.external_patient_id and self.external_patient:
+            return f"{self.external_patient.first_name} {self.external_patient.last_name}".strip()
+        return self.external_name or "—"
+
     def __str__(self):
+        who = self.patient if self.patient_id else (self.external_patient or self.external_name or "Inconnu")
         return (
             f"RDV {self.get_status_display()} — "
-            f"{self.patient} → Dr.{self.doctor.user.last_name} "
+            f"{who} → Dr.{self.doctor.user.last_name} "
             f"({self.date} {self.start_time})"
         )
 

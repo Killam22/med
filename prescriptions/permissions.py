@@ -33,7 +33,10 @@ class IsPrescriptionOwner(BasePermission):
         if role == 'doctor':
             return obj.consultation.doctor.user == request.user
         if role == 'patient':
-            return obj.consultation.patient.user == request.user
+            cons = obj.consultation
+            if not cons.patient_id or not cons.patient or not cons.patient.user:
+                return False
+            return cons.patient.user == request.user
         if role == 'pharmacist':
             # Un pharmacien peut voir s'il a reçu une commande liée
             return obj.pharmacy_orders.filter(pharmacist=request.user).exists()

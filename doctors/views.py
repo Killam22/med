@@ -149,6 +149,15 @@ class DayOffViewSet(viewsets.ModelViewSet):
         serializer.save(doctor=self.request.user.doctor_profile)
 
 
+def _safe_patient_name(a):
+    """Renvoie le nom à afficher pour un Appointment (patient lié, externe, ou texte libre)."""
+    if a.patient_id and a.patient and a.patient.user:
+        return a.patient.user.get_full_name()
+    if a.external_patient_id and a.external_patient:
+        return f"{a.external_patient.first_name} {a.external_patient.last_name}".strip()
+    return a.external_name or "—"
+
+
 class DoctorDashboardView(APIView):
     permission_classes = [IsDoctor]
     renderer_classes = [JSONRenderer]
@@ -188,7 +197,7 @@ class DoctorDashboardView(APIView):
                     "id": str(a.id),
                     "start_time": a.start_time.strftime('%H:%M'),
                     "end_time": a.end_time.strftime('%H:%M'),
-                    "patient_name": a.patient.user.get_full_name(),
+                    "patient_name": _safe_patient_name(a),
                     "motif": a.motif,
                     "status": a.status,
                 }
@@ -197,7 +206,7 @@ class DoctorDashboardView(APIView):
             "patient_requests": [
                 {
                     "id": str(a.id),
-                    "patient_name": a.patient.user.get_full_name(),
+                    "patient_name": _safe_patient_name(a),
                     "date": a.date.isoformat(),
                     "start_time": a.start_time.strftime('%H:%M'),
                     "motif": a.motif,

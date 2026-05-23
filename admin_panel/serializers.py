@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import AuditLog
+from .models import AuditLog, AdminContactRequest
 
 User = get_user_model()
 
@@ -195,3 +195,28 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ['id', 'level', 'message', 'actor_name', 'ip_address', 'created_at']
+
+
+class AdminContactRequestSerializer(serializers.ModelSerializer):
+    user_full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_role = serializers.CharField(source='user.role', read_only=True)
+    handled_by_name = serializers.CharField(
+        source='handled_by.get_full_name', read_only=True, default=None
+    )
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = AdminContactRequest
+        fields = [
+            'id', 'user', 'user_full_name', 'user_email', 'user_role',
+            'category', 'category_display', 'subject', 'message',
+            'status', 'status_display', 'admin_response',
+            'handled_by', 'handled_by_name', 'handled_at',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'user', 'status', 'admin_response',
+            'handled_by', 'handled_at', 'created_at', 'updated_at',
+        ]

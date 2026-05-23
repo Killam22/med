@@ -16,6 +16,7 @@ from .views import (
     RefuseAppointmentView,
     CompleteAppointmentView,
     DoctorCancelAppointmentView,
+    DoctorCreateAppointmentView,
     DoctorDailyScheduleView,
     DoctorPendingAppointmentsView,
     StartConsultationView,
@@ -43,6 +44,7 @@ urlpatterns = [
     # ── Doctor ────────────────────────────────────────────────────────────
     path('doctor/schedule/',                          views.DoctorDailyScheduleView.as_view(),           name='doctor-schedule'),
     path('doctor/appointments/',                      views.DoctorAppointmentListView.as_view(),          name='doctor-appointments'),
+    path('doctor/appointments/create/',               views.DoctorCreateAppointmentView.as_view(),        name='doctor-appointment-create'),
     path('doctor/appointments/pending/',              views.DoctorPendingAppointmentsView.as_view(),      name='doctor-appointments-pending'),
     path('doctor/appointments/<int:pk>/',             views.DoctorAppointmentDetailView.as_view(),        name='doctor-appointment-detail'),
     path('doctor/appointments/<int:pk>/confirm/',     views.ConfirmAppointmentView.as_view(),             name='appointment-confirm'),

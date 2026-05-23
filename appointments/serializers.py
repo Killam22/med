@@ -87,10 +87,17 @@ class AppointmentSerializer(serializers.ModelSerializer):
     doctor_user_id   = serializers.IntegerField(source='doctor.user.id', read_only=True)
     doctor_name      = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
     doctor_specialty = serializers.CharField(source='doctor.specialty', read_only=True)
-    patient_name     = serializers.CharField(source='patient.user.get_full_name', read_only=True)
+    patient_name     = serializers.SerializerMethodField()
     duration_minutes = serializers.IntegerField(read_only=True)
     status_display   = serializers.CharField(source='get_status_display', read_only=True)
     has_review       = serializers.SerializerMethodField()
+
+    def get_patient_name(self, obj):
+        if obj.patient_id and obj.patient and obj.patient.user:
+            return obj.patient.user.get_full_name()
+        if obj.external_patient_id and obj.external_patient:
+            return f"{obj.external_patient.first_name} {obj.external_patient.last_name}".strip()
+        return obj.external_name or ""
 
     class Meta:
         model  = Appointment
@@ -126,13 +133,37 @@ class AppointmentDoctorSerializer(serializers.ModelSerializer):
     Utilisé dans toutes les vues doctor/appointments/
     Ajoute refusal_reason et les infos patient complètes.
     """
-    patient_id      = serializers.IntegerField(source='patient.id', read_only=True)
-    patient_user_id = serializers.IntegerField(source='patient.user.id', read_only=True)
-    patient_name    = serializers.CharField(source='patient.user.get_full_name', read_only=True)
-    patient_email   = serializers.EmailField(source='patient.user.email', read_only=True)
-    patient_phone   = serializers.CharField(source='patient.user.phone', read_only=True)
-    duration_minutes = serializers.IntegerField(read_only=True)
-    status_display  = serializers.CharField(source='get_status_display', read_only=True)
+    patient_id          = serializers.IntegerField(source='patient.id', read_only=True, allow_null=True)
+    patient_user_id     = serializers.IntegerField(source='patient.user.id', read_only=True, allow_null=True)
+    external_patient_id = serializers.IntegerField(read_only=True, allow_null=True)
+    patient_name        = serializers.SerializerMethodField()
+    patient_email       = serializers.SerializerMethodField()
+    patient_phone       = serializers.SerializerMethodField()
+    is_external         = serializers.SerializerMethodField()
+    duration_minutes    = serializers.IntegerField(read_only=True)
+    status_display      = serializers.CharField(source='get_status_display', read_only=True)
+
+    def get_patient_name(self, obj):
+        if obj.patient_id and obj.patient and obj.patient.user:
+            return obj.patient.user.get_full_name()
+        if obj.external_patient_id and obj.external_patient:
+            return f"{obj.external_patient.first_name} {obj.external_patient.last_name}".strip()
+        return obj.external_name or ""
+
+    def get_patient_email(self, obj):
+        if obj.patient_id and obj.patient and obj.patient.user:
+            return obj.patient.user.email
+        return ""
+
+    def get_patient_phone(self, obj):
+        if obj.patient_id and obj.patient and obj.patient.user:
+            return getattr(obj.patient.user, "phone", "") or ""
+        if obj.external_patient_id and obj.external_patient:
+            return obj.external_patient.phone or ""
+        return obj.external_phone or ""
+
+    def get_is_external(self, obj):
+        return bool(obj.external_patient_id) or (not obj.patient_id)
 
     class Meta:
         model  = Appointment
@@ -140,9 +171,11 @@ class AppointmentDoctorSerializer(serializers.ModelSerializer):
             'id',
             'patient_id',
             'patient_user_id',
+            'external_patient_id',
             'patient_name',
             'patient_email',
             'patient_phone',
+            'is_external',
             'date',
             'start_time',
             'end_time',

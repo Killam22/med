@@ -152,6 +152,151 @@ class PatientAppointmentDetailView(generics.RetrieveAPIView):
         return Appointment.objects.filter(patient=self.request.user.patient_profile)
 
 
+class DoctorCreateAppointmentView(APIView):
+    """
+    POST /api/doctor/appointments/create/
+    Le médecin crée un RDV directement (statut 'confirmed').
+    Trois modes :
+      - Patient lié (compte Healy)            : { patient_id, ... }
+      - Patient externe existant              : { external_patient_id, ... }
+      - Nouveau patient externe (création)    : { external_first_name, external_last_name, external_phone?, ... }
+    Body commun : { date, start_time, end_time, motif }
+    """
+    permission_classes = [IsDoctor]
+
+    def post(self, request):
+        data = request.data or {}
+        patient_id            = data.get('patient_id')
+        external_patient_id   = data.get('external_patient_id')
+        external_first_name   = (data.get('external_first_name') or '').strip()
+        external_last_name    = (data.get('external_last_name')  or '').strip()
+        external_phone        = (data.get('external_phone')      or '').strip()
+        date_str   = data.get('date')
+        start_time = data.get('start_time')
+        end_time   = data.get('end_time')
+        motif      = (data.get('motif') or '').strip()
+
+        # Exactement un des trois modes
+        modes_supplied = sum([
+            bool(patient_id),
+            bool(external_patient_id),
+            bool(external_first_name or external_last_name),
+        ])
+        if modes_supplied == 0:
+            return Response(
+                {'detail': 'Précisez patient_id, external_patient_id, ou external_first_name + external_last_name.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if modes_supplied > 1:
+            return Response(
+                {'detail': 'Un seul mode patient à la fois.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not all([date_str, start_time, end_time]):
+            return Response(
+                {'detail': 'date, start_time et end_time sont requis.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not motif:
+            return Response({'detail': 'Le motif est requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        doctor = request.user.doctor_profile
+        patient = None
+        external_patient = None
+
+        # --- Mode 1 : patient lié ---
+        if patient_id:
+            try:
+                patient = Patient.objects.get(pk=patient_id)
+            except Patient.DoesNotExist:
+                return Response({'detail': 'Patient introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+            has_real_appt = Appointment.objects.filter(
+                doctor=doctor, patient=patient,
+                status__in=('confirmed', 'completed', 'in_progress'),
+            ).exists()
+            has_link = False
+            try:
+                from patients.models import PatientLinkRequest
+                has_link = PatientLinkRequest.objects.filter(
+                    doctor=doctor, patient=patient, status='accepted'
+                ).exists()
+            except Exception:
+                pass
+            if not (has_real_appt or has_link):
+                return Response(
+                    {'detail': "Ce patient n'est pas lié à votre profil."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        # --- Mode 2 : patient externe existant ---
+        elif external_patient_id:
+            from patients.models import ExternalPatient
+            try:
+                external_patient = ExternalPatient.objects.get(pk=external_patient_id, doctor=doctor)
+            except ExternalPatient.DoesNotExist:
+                return Response(
+                    {'detail': 'Patient externe introuvable.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        # --- Mode 3 : nouveau patient externe (création à la volée) ---
+        else:
+            if not external_first_name or not external_last_name:
+                return Response(
+                    {'detail': 'Le prénom et le nom sont requis pour créer un nouveau patient externe.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from patients.models import ExternalPatient
+            external_patient = ExternalPatient.objects.create(
+                doctor=doctor,
+                first_name=external_first_name,
+                last_name=external_last_name,
+                phone=external_phone,
+            )
+
+        # Parse date / times
+        from datetime import datetime
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return Response({'detail': 'Format de date invalide (attendu YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            st_fmt = "%H:%M:%S" if len(start_time) > 5 else "%H:%M"
+            et_fmt = "%H:%M:%S" if len(end_time)   > 5 else "%H:%M"
+            st = datetime.strptime(start_time, st_fmt).time()
+            et = datetime.strptime(end_time,   et_fmt).time()
+        except (TypeError, ValueError):
+            return Response({'detail': 'Format d\'heure invalide (attendu HH:MM).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            appointment = book_appointment(
+                patient=patient, doctor=doctor,
+                external_patient=external_patient,
+                date=d, start_time=st, end_time=et, motif=motif,
+            )
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        appointment.status = 'confirmed'
+        appointment.save(update_fields=['status'])
+
+        # Notif au patient (uniquement si compte Healy)
+        if patient:
+            try:
+                from notifications.models import Notification
+                Notification.objects.create(
+                    user=patient.user,
+                    title="Nouveau rendez-vous",
+                    message=f"Dr. {request.user.get_full_name()} a programmé un RDV le {d} à {st.strftime('%H:%M')}.",
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                )
+            except Exception:
+                pass
+
+        return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
+
+
 class CancelAppointmentView(APIView):
     """POST /api/appointments/{id}/cancel/"""
     permission_classes = [IsPatient]
@@ -286,13 +431,14 @@ class ConfirmAppointmentView(APIView):
             return Response({"detail": "Seuls les rendez-vous en attente peuvent être confirmés."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.confirm()
-        from notifications.models import Notification
-        Notification.objects.create(
-            user=appt.patient.user,
-            title="Rendez-vous confirmé",
-            message=f"Votre RDV avec Dr.{appt.doctor.user.last_name} est confirmé.",
-            notification_type=Notification.NotificationType.APPOINTMENT
-        )
+        if appt.patient_id and appt.patient and appt.patient.user:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=appt.patient.user,
+                title="Rendez-vous confirmé",
+                message=f"Votre RDV avec Dr.{appt.doctor.user.last_name} est confirmé.",
+                notification_type=Notification.NotificationType.APPOINTMENT
+            )
         return Response({"detail": "Confirmé."}, status=status.HTTP_200_OK)
 
 
@@ -310,13 +456,14 @@ class RefuseAppointmentView(APIView):
             return Response({"detail": "Ce rendez-vous ne peut pas être refusé."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.refuse(reason=request.data.get('reason', ''))
-        from notifications.models import Notification
-        Notification.objects.create(
-            user=appt.patient.user,
-            title="Rendez-vous annulé",
-            message=f"Le Dr. {appt.doctor.user.last_name} a dû annuler votre rendez-vous. Veuillez choisir un autre créneau.",
-            notification_type=Notification.NotificationType.APPOINTMENT
-        )
+        if appt.patient_id and appt.patient and appt.patient.user:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=appt.patient.user,
+                title="Rendez-vous annulé",
+                message=f"Le Dr. {appt.doctor.user.last_name} a dû annuler votre rendez-vous. Veuillez choisir un autre créneau.",
+                notification_type=Notification.NotificationType.APPOINTMENT
+            )
         return Response({"detail": "Refusé."}, status=status.HTTP_200_OK)
 
 
@@ -334,13 +481,14 @@ class CompleteAppointmentView(APIView):
             return Response({"detail": "Seuls les rendez-vous confirmés peuvent être terminés."},
                             status=status.HTTP_400_BAD_REQUEST)
         appt.complete(notes=request.data.get('notes', ''))
-        from notifications.models import Notification
-        Notification.objects.create(
-            user=appt.patient.user,
-            title="Consultation terminée",
-            message="Consultation terminée. Ordonnance disponible.",
-            notification_type=Notification.NotificationType.APPOINTMENT
-        )
+        if appt.patient_id and appt.patient and appt.patient.user:
+            from notifications.models import Notification
+            Notification.objects.create(
+                user=appt.patient.user,
+                title="Consultation terminée",
+                message="Consultation terminée. Ordonnance disponible.",
+                notification_type=Notification.NotificationType.APPOINTMENT
+            )
         return Response({"detail": "Terminé."}, status=status.HTTP_200_OK)
 
 
@@ -361,19 +509,21 @@ class DoctorCancelAppointmentView(APIView):
             )
         reason = request.data.get('reason', '').strip()
         appt.cancel()
-        from notifications.models import Notification
-        msg = (
-            f"Votre rendez-vous du {appt.date.strftime('%d/%m/%Y')} à "
-            f"{appt.start_time.strftime('%H:%M')} avec Dr. {appt.doctor.user.last_name} a été annulé."
-        )
-        if reason:
-            msg += f" Motif : {reason}"
-        Notification.objects.create(
-            user=appt.patient.user,
-            title="Rendez-vous annulé par le médecin",
-            message=msg,
-            notification_type=Notification.NotificationType.APPOINTMENT
-        )
+        # Notif uniquement si patient lié (les walk-in n'ont pas de compte)
+        if appt.patient_id and appt.patient and appt.patient.user:
+            from notifications.models import Notification
+            msg = (
+                f"Votre rendez-vous du {appt.date.strftime('%d/%m/%Y')} à "
+                f"{appt.start_time.strftime('%H:%M')} avec Dr. {appt.doctor.user.last_name} a été annulé."
+            )
+            if reason:
+                msg += f" Motif : {reason}"
+            Notification.objects.create(
+                user=appt.patient.user,
+                title="Rendez-vous annulé par le médecin",
+                message=msg,
+                notification_type=Notification.NotificationType.APPOINTMENT
+            )
         return Response({"detail": "Annulé."}, status=status.HTTP_200_OK)
 
 

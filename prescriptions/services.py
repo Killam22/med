@@ -123,9 +123,15 @@ class PDFService:
         content.append(Paragraph(f"Référence : RX-{str(prescription.id)[:8].upper()}", subtitle_style))
         content.append(Spacer(1, 1*cm))
 
-        # 3. Informations Patient
-        patient = prescription.consultation.patient
-        content.append(Paragraph(f"<b>Patient :</b> {patient.user.get_full_name()}", styles['Normal']))
+        # 3. Informations Patient (gère lié, externe, ou absent)
+        cons = prescription.consultation
+        if cons.patient_id and cons.patient and cons.patient.user:
+            patient_name = cons.patient.user.get_full_name() or "—"
+        elif cons.external_patient_id and cons.external_patient:
+            patient_name = f"{cons.external_patient.first_name} {cons.external_patient.last_name}".strip() + " (externe)"
+        else:
+            patient_name = "—"
+        content.append(Paragraph(f"<b>Patient :</b> {patient_name}", styles['Normal']))
         content.append(Spacer(1, 1*cm))
 
         # 4. Liste des Médicaments (Tableau)

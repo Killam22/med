@@ -146,11 +146,17 @@ def get_available_slots_range(doctor: Doctor, from_date: date, to_date: date) ->
 # ── Booking ───────────────────────────────────────────────────────────────────
 
 def book_appointment(*, patient, doctor: Doctor, date: date,
-                     start_time, end_time, motif: str) -> Appointment:
+                     start_time, end_time, motif: str,
+                     external_patient=None) -> Appointment:
     """
     Atomically validate and create an appointment.
+    Accept either a linked `patient` (Patient instance) OR an `external_patient`
+    (ExternalPatient instance) for walk-in / patient sans compte.
     Raises ValueError with a user-friendly message on any conflict.
     """
+
+    if not patient and not external_patient:
+        raise ValueError("Un patient (lié ou externe) est requis.")
 
     with transaction.atomic():
         # Lock all appointments for this doctor+date to prevent race conditions
@@ -186,6 +192,7 @@ def book_appointment(*, patient, doctor: Doctor, date: date,
         appointment = Appointment.objects.create(
             patient=patient,
             doctor=doctor,
+            external_patient=external_patient,
             date=date,
             start_time=start_time,
             end_time=end_time,

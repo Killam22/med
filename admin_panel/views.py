@@ -18,8 +18,8 @@ class IsAdminRole(BasePermission):
             (getattr(request.user, 'role', None) == 'admin' or request.user.is_superuser)
         )
 
-from .models import AuditLog
-from .serializers import AdminUserSerializer, AuditLogSerializer
+from .models import AuditLog, AdminContactRequest
+from .serializers import AdminUserSerializer, AuditLogSerializer, AdminContactRequestSerializer
 from notifications.models import Notification # Toujours lié à tes supers notifications
 from appointments.models import Appointment
 from appointments.serializers import AppointmentSerializer
@@ -357,3 +357,96 @@ class AdminProfileUpdateActionView(APIView):
         req.save()
         return Response({'message': f'Demande {req.status}.'}, status=status.HTTP_200_OK)
 
+
+# ─── Contact Admin (depuis l'écran Paramètres de chaque dashboard) ─────────────
+
+class MyAdminContactRequestView(generics.ListCreateAPIView):
+    """
+    GET  /api/admin/contact-requests/me/  → liste mes propres demandes
+    POST /api/admin/contact-requests/me/  → créer une nouvelle demande
+    Accessible à tout utilisateur authentifié (patient, médecin, pharmacien,
+    garde-malade, admin).
+    """
+    serializer_class = AdminContactRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return AdminContactRequest.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        req = serializer.save(user=self.request.user)
+        # Notifie tous les admins / superusers
+        try:
+            admins = User.objects.filter(role='admin') | User.objects.filter(is_superuser=True)
+            for admin_user in admins.distinct():
+                Notification.objects.create(
+                    user=admin_user,
+                    title="Nouvelle demande de contact",
+                    message=f"{req.user.get_full_name() or req.user.email} : {req.subject}",
+                    notification_type=Notification.NotificationType.SYSTEM,
+                )
+        except Exception:
+            pass
+        create_audit_log(
+            f"Demande de contact reçue de {self.request.user.email} : {req.subject}",
+            AuditLog.Level.INFO,
+            self.request,
+        )
+
+
+class AdminContactRequestViewSet(viewsets.ModelViewSet):
+    """
+    Endpoints admin pour traiter les demandes :
+      GET    /api/admin/contact-requests/             → liste (filtres ?status=…&category=…)
+      GET    /api/admin/contact-requests/{id}/        → détail
+      POST   /api/admin/contact-requests/{id}/respond/  → répondre / changer statut
+    """
+    queryset = AdminContactRequest.objects.all().select_related('user', 'handled_by')
+    serializer_class = AdminContactRequestSerializer
+    permission_classes = [IsAdminRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status', 'category']
+    search_fields = ['subject', 'message', 'user__email', 'user__first_name', 'user__last_name']
+
+    @action(detail=True, methods=['post'])
+    def respond(self, request, pk=None):
+        req = self.get_object()
+        new_status = request.data.get('status') or AdminContactRequest.Status.RESOLVED
+        response_text = request.data.get('admin_response', '')
+
+        valid_statuses = {s.value for s in AdminContactRequest.Status}
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': 'Statut invalide.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.utils import timezone
+        req.status = new_status
+        if response_text:
+            req.admin_response = response_text
+        req.handled_by = request.user
+        req.handled_at = timezone.now()
+        req.save()
+
+        # Notifie le demandeur
+        try:
+            Notification.objects.create(
+                user=req.user,
+                title=f"Votre demande « {req.subject} » a été traitée",
+                message=(
+                    response_text
+                    or f"Statut mis à jour : {req.get_status_display()}"
+                ),
+                notification_type=Notification.NotificationType.SYSTEM,
+            )
+        except Exception:
+            pass
+
+        create_audit_log(
+            f"Demande de contact #{req.id} traitée ({new_status}) — {req.user.email}",
+            AuditLog.Level.SUCCESS,
+            request,
+        )
+
+        return Response(AdminContactRequestSerializer(req).data)
